@@ -6,6 +6,15 @@ const int dirPin2 = 12;
 const int grid_Motor = 7;
 const int buttonPin = 11;
 
+
+int frequency = 0;
+const int black_value = 20;
+#define S0 23  // light sensor, TCS3200
+#define S1 25
+#define S2 24
+#define S3 26
+#define out 22
+
 const float TRACK_WIDTH = 1000.0 ; //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0; // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
@@ -27,8 +36,40 @@ void setup() {
   pinMode(dirPin2, OUTPUT);
   pinMode(grid_Motor, OUTPUT);
 
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(out, INPUT);
+  
+  
+  Serial.begin(9600); 
+
   pinMode(buttonPin, INPUT);
 }
+
+void detect_black_line(){
+
+  digitalWrite(S2,HIGH); //clear, no filter
+  digitalWrite(S3,LOW);
+  digitalWrite(S0,HIGH); // Frequency scaling to 20%
+  digitalWrite(S1,LOW);
+
+  Serial.print("Freq: ");
+  Serial.println(frequency);
+  
+  frequency = pulseIn(out, LOW);
+  
+  if(frequency > black_value){
+    Serial.println("Black Line Detected");
+    // Add motor control code here
+  } else {
+    Serial.println("White Surface");
+  }
+  
+  delay(100);
+}
+
 
 void move_forward(float distance_mm) {
 int steps = stepsForDistance(distance_mm);
@@ -154,8 +195,4 @@ move_forward(5000);
 }
 
 
-
-
-
 }
-
