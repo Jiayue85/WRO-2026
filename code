@@ -1,19 +1,22 @@
-#include <Stepper.h>
+#include <AccelStepper.h>
 
 //defines pins numbers
-const int stepPin = 3; //left
-const int dirPin = 2; 
+AccelStepper lMotor(1, 3, 2 ); //left
 const int Lms1 = 33;
 const int Lms2 = 35;
 const int Lms3 = 37;
-const int stepPin2 = 13; //right
-const int dirPin2 = 12;
+
+AccelStepper rMotor(1,13,12); //right
 const int Rms1 = 32;
 const int Rms2 = 34;
 const int Rms3 = 36;
+
 const int grid_Motor = 7;
 const int buttonPin = 28;
 
+int currentstep = 1;
+
+int stop = 0; //1 is stop
 
 int frequency = 0;
 const int black_value = 20;
@@ -29,7 +32,14 @@ const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
 const int STEPS_PER_REV = 200;
 const float STEPS_FOR_90_TURN = WHEEL_DIAMETER * STEPS_PER_REV / 4.0 / TRACK_WIDTH;
 
-bool stop = false;
+
+long l_dl(){
+  return lMotor.distanceToGo();
+}
+
+long r_dl(){
+  return rMotor.distanceToGo();
+}
 
 // Calculate steps for movements
 int stepsForDistance(float distance_mm) {
@@ -38,11 +48,11 @@ int stepsForDistance(float distance_mm) {
 }
 
 void setup() {
-  pinMode(stepPin, OUTPUT); 
-  pinMode(dirPin, OUTPUT);
-  pinMode(stepPin2, OUTPUT); 
-  pinMode(dirPin2, OUTPUT);
-  pinMode(grid_Motor, OUTPUT);
+ lMotor.setMaxSpeed(1500);
+ rMotor.setMaxSpeed(1500);
+
+ lMotor.setAcceleration(800);
+ rMotor.setAcceleration(800);
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
   pinMode(Lms3, OUTPUT);
@@ -63,8 +73,8 @@ void setup() {
   pinMode(buttonPin, INPUT);
 }
 
-void DBUG(msg){
-  msg = 
+void DBUG(char msg){
+  
   Serial.println(msg);
 }
 
@@ -91,104 +101,14 @@ void detect_black_line(){
 }
 
 
-void move_forward(float distance_mm) {
-int steps = stepsForDistance(distance_mm);
 
-  digitalWrite(dirPin, HIGH);
-  digitalWrite(dirPin2, LOW);
-  // 200 is a full turn of the stepper motor
-  // Both motors step together in the same loop
-  for(int x = 0; x < steps; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
+void go(float distance){
+  int steps = stepsForDistance(distance);
+  rMotor.move(steps);
+  lMotor.move(steps);
+
 }
-
-
-void move_backward(float distance_mm) {
-  int steps = stepsForDistance(distance_mm);
-  
-  digitalWrite(dirPin, LOW);
-  digitalWrite(dirPin2, HIGH);
-  
-  for(int x = 0; x < steps; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
-  delay(100);
-}
-
-
-void turn_90_Left() {
-  digitalWrite(dirPin, HIGH);   // Motor L forward
-  digitalWrite(dirPin2, HIGH); // Motor R backwards
-  
-  for(int x = 0; x < STEPS_FOR_90_TURN ; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
-  delay(1000);
-}
-#
-void turn_90_Right() {
-  digitalWrite(dirPin, LOW);  // Motor L backwards
-  digitalWrite(dirPin2, LOW);  // Motor R forwards
-  
-  for(int x = 0; x < STEPS_FOR_90_TURN; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
-  delay(1000);
-}
-
-
-
-void turn_180_left() {
-  digitalWrite(dirPin, HIGH);
-  digitalWrite(dirPin2, HIGH);
-  
-  // Double the steps for 180 degrees
-  for(int x = 0; x < STEPS_FOR_90_TURN * 2; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
-  delay(100);
-}
-
-void turn_180_right() {
-  digitalWrite(dirPin, LOW);
-  digitalWrite(dirPin2, LOW);
-  
-  for(int x = 0; x < STEPS_FOR_90_TURN * 2; x++) {
-    digitalWrite(stepPin, HIGH);
-    digitalWrite(stepPin2, HIGH);
-    delayMicroseconds(600); 
-    digitalWrite(stepPin, LOW);
-    digitalWrite(stepPin2, LOW);
-    delayMicroseconds(800); 
-  }
-  delay(100);
-}
+ 
 void Lower_grid (){
 digitalWrite(grid_Motor, HIGH);
 delay(100);
@@ -202,17 +122,21 @@ digitalWrite(grid_Motor, LOW);
 }
 
 
+
 void loop() {
+  lMotor.run();
+  rMotor.run();
 
-if (digitalRead(buttonPin )== HIGH) {
-    stop = true;
-    Serial.println('pressed');
+  if (digitalRead(buttonPin) == LOW){
+    lMotor.stop();
+    rMotor.stop();
+    stop = 1;
+  }
+  if (l_dl == 0 && r_dl == 0 && stop != 1){
+
+
+  }
+   
+
 }
 
-
-if(stop == false){
-move_forward(5000);
-}
-
-
-}
