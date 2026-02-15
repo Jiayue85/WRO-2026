@@ -6,7 +6,7 @@ const int Lms1 = 33;
 const int Lms2 = 35;
 const int Lms3 = 37;
 
-AccelStepper rMotor(1,13,12); //right
+AccelStepper rMotor(1,11,10); //right
 const int Rms1 = 32;
 const int Rms2 = 34;
 const int Rms3 = 36;
@@ -14,12 +14,14 @@ const int Rms3 = 36;
 const int grid_Motor = 7;
 const int buttonPin = 28;
 
-int currentstep = 1;
+int DBG = 0; //1=on
 
+int currentStep = 1;
+unsigned long lastPrintTime = 0;
 int stop = 0; //1 is stop
 
 int frequency = 0;
-const int black_value = 20;
+const int black_value = 100;
 #define S0 23  // light sensor, TCS3200
 #define S1 25
 #define S2 24
@@ -35,6 +37,7 @@ const float STEPS_FOR_90_TURN = WHEEL_DIAMETER * STEPS_PER_REV / 4.0 / TRACK_WID
 
 long l_dl(){
   return lMotor.distanceToGo();
+
 }
 
 long r_dl(){
@@ -43,16 +46,16 @@ long r_dl(){
 
 // Calculate steps for movements
 int stepsForDistance(float distance_mm) {
-  Serial.println((distance_mm / WHEEL_CIRCUMFERENCE) * STEPS_PER_REV);
+
   return (int)((distance_mm / WHEEL_CIRCUMFERENCE) * STEPS_PER_REV);
 }
 
 void setup() {
- lMotor.setMaxSpeed(1500);
- rMotor.setMaxSpeed(1500);
+ lMotor.setMaxSpeed(1700); //r per min
+ rMotor.setMaxSpeed(1700);
 
- lMotor.setAcceleration(800);
- rMotor.setAcceleration(800);
+ lMotor.setAcceleration(600);
+ rMotor.setAcceleration(600);
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
   pinMode(Lms3, OUTPUT);
@@ -68,15 +71,23 @@ void setup() {
 
   
   
-  Serial.begin(9600); 
+  Serial.begin(750); 
 
   pinMode(buttonPin, INPUT);
 }
 
-void DBUG(char msg){
-  
-  Serial.println(msg);
+template <typename T>
+void DBUG(T msg){
+
+  if ((millis() - lastPrintTime >= 500) && (DBG == 1)) {
+    lastPrintTime = millis();
+      Serial.println(msg);
+
+  }
 }
+
+
+
 
 void detect_black_line(){
 
@@ -97,13 +108,14 @@ void detect_black_line(){
     Serial.println("White Surface");
   }
   
-  delay(100);
+
 }
 
 
 
 void go(float distance){
   int steps = stepsForDistance(distance);
+
   rMotor.move(steps);
   lMotor.move(steps);
 
@@ -126,17 +138,24 @@ digitalWrite(grid_Motor, LOW);
 void loop() {
   lMotor.run();
   rMotor.run();
+  go(2000);
 
   if (digitalRead(buttonPin) == LOW){
     lMotor.stop();
     rMotor.stop();
+
     stop = 1;
   }
-  if (l_dl == 0 && r_dl == 0 && stop != 1){
+
+  if (l_dl() == 0 && r_dl() == 0 && stop != 1){
+    if(currentStep == 1){
+
+
+   
+    }
 
 
   }
    
 
 }
-
