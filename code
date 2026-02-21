@@ -14,11 +14,14 @@ const int Rms3 = 36;
 const int grid_Motor = 7;
 const int buttonPin = 28;
 
-int DBG = 0; //1=on
+const int DBG = 0; //1=on
+
+
+unsigned long lastPrintTime = 0;
 
 int currentStep = 1;
-unsigned long lastPrintTime = 0;
-int stop = 0; //1 is stop
+bool run = true ; 
+bool lastButtonState = HIGH;
 
 int frequency = 0;
 const int black_value = 100;
@@ -31,7 +34,7 @@ const int black_value = 100;
 const float TRACK_WIDTH = 1000.0 ; //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0; // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
-const int STEPS_PER_REV = 200;
+int STEPS_PER_REV = 200;
 const float STEPS_FOR_90_TURN = WHEEL_DIAMETER * STEPS_PER_REV / 4.0 / TRACK_WIDTH;
 
 
@@ -42,7 +45,48 @@ long l_dl(){
 
 long r_dl(){
   return rMotor.distanceToGo();
+
 }
+
+void StepMode(stepMode){
+  if(stepMode == 1){//both motors fullsteps
+    STEPS_PER_REV = 200;
+    digitalWrite(Rms1, LOW);
+    digitalWrite(Rms2, LOW);
+    digitalWrite(Rms3, LOW);
+    digitalWrite(Lms1, LOW);
+    digitalWrite(Lms2, LOW);
+    digitalWrite(Lms3, LOW);
+  }
+  if(stepMode == 2){// Both motors half steps
+    STEPS_PER_REV = 400;
+    digitalWrite(Rms1, HIGH);
+    digitalWrite(Rms2, LOW);
+    digitalWrite(Rms3, LOW);
+    digitalWrite(Lms1, HIGH);
+    digitalWrite(Lms2, LOW);
+    digitalWrite(Lms3, LOW);
+  }
+  if(stepMode == 3){ //both motors quarter steps
+    STEPS_PER_REV = 800;
+    digitalWrite(Rms1, HIGH);
+    digitalWrite(Rms2, HIGH);
+    digitalWrite(Rms3, LOW);
+    digitalWrite(Lms1, HIGH);
+    digitalWrite(Lms2, HIGH);
+    digitalWrite(Lms3, LOW);
+  }
+   if(stepMode == 4){ //both motors sixteenth steps
+    STEPS_PER_REV = 1600;
+    digitalWrite(Rms1, HIGH);
+    digitalWrite(Rms2, HIGH);
+    digitalWrite(Rms3, LOW);
+    digitalWrite(Lms1, HIGH);
+    digitalWrite(Lms2, HIGH);
+    digitalWrite(Lms3, LOW);
+  }
+}
+
 
 // Calculate steps for movements
 int stepsForDistance(float distance_mm) {
@@ -50,31 +94,7 @@ int stepsForDistance(float distance_mm) {
   return (int)((distance_mm / WHEEL_CIRCUMFERENCE) * STEPS_PER_REV);
 }
 
-void setup() {
- lMotor.setMaxSpeed(1700); //r per min
- rMotor.setMaxSpeed(1700);
 
- lMotor.setAcceleration(600);
- rMotor.setAcceleration(600);
-  pinMode(Lms1, OUTPUT);
-  pinMode(Lms2, OUTPUT);
-  pinMode(Lms3, OUTPUT);
-  pinMode(Rms1, OUTPUT);
-  pinMode(Rms2, OUTPUT);
-  pinMode(Rms3, OUTPUT);
-
-  pinMode(S0, OUTPUT);
-  pinMode(S1, OUTPUT);
-  pinMode(S2, OUTPUT);
-  pinMode(S3, OUTPUT);
-  pinMode(out, INPUT);
-
-  
-  
-  Serial.begin(750); 
-
-  pinMode(buttonPin, INPUT);
-}
 
 template <typename T>
 void DBUG(T msg){
@@ -112,7 +132,6 @@ void detect_black_line(){
 }
 
 
-
 void go(float distance){
   int steps = stepsForDistance(distance);
 
@@ -122,40 +141,81 @@ void go(float distance){
 }
  
 void Lower_grid (){
-digitalWrite(grid_Motor, HIGH);
-delay(100);
-digitalWrite(grid_Motor, LOW);
+  digitalWrite(grid_Motor, HIGH);
+  delay(100);
+  digitalWrite(grid_Motor, LOW);
 }
 
 void Raise_grid (){
-digitalWrite(grid_Motor, HIGH);
-delay(100);
-digitalWrite(grid_Motor, LOW);
+  digitalWrite(grid_Motor, HIGH); 
+  delay(100);
+  digitalWrite(grid_Motor, LOW);
 }
 
+void setup() {
+ lMotor.setMaxSpeed(1700); //r per min
+ rMotor.setMaxSpeed(1700);
 
+ lMotor.setAcceleration(600);
+ rMotor.setAcceleration(600);
+  pinMode(Lms1, OUTPUT);
+  pinMode(Lms2, OUTPUT);
+  pinMode(Lms3, OUTPUT);
+  pinMode(Rms1, OUTPUT);
+  pinMode(Rms2, OUTPUT);
+  pinMode(Rms3, OUTPUT);
+
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(out, INPUT);
+
+  
+  
+  Serial.begin(750); 
+
+  pinMode(buttonPin, INPUT);
+}
 
 void loop() {
-  lMotor.run();
-  rMotor.run();
-  go(2000);
+  bool currentButtonState = digitalRead(buttonPin);
 
-  if (digitalRead(buttonPin) == LOW){
-    lMotor.stop();
-    rMotor.stop();
 
-    stop = 1;
+ 
+
+  if (currentButtonState == LOW && lastButtonState == HIGH) {
+    
+    run = !run;
+    delay(500);
   }
-
-  if (l_dl() == 0 && r_dl() == 0 && stop != 1){
+  
+  lastButtonState = currentButtonState;
+  
+  if (run){
+    lMotor.run();
+    rMotor.run();
+    
     if(currentStep == 1){
+      go(2000);
 
-
+      currentStep = 2;
    
     }
+    if(currentStep ==2 ){
+      //more code
+    }
 
-
+  }else{
+    //whatever needs to stop
+    lmotor.stop()
+    rmotor.stop()
   }
    
 
 }
+
+
+
+
+
