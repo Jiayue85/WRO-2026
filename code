@@ -208,7 +208,7 @@ void loop() {
         Serial.println("201");
       
       case 2:
-        Serial.println(l_dl());
+        Serial.println(r_dl());
         
         
         /*if (l_dl() == 0 && r_dl() == 0 ){
