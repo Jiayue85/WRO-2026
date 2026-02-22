@@ -21,6 +21,9 @@ int currentStep = 1;
 bool run = true ; 
 bool lastButtonState = LOW;
 
+int i = 1 ;
+
+
 int frequency = 0;
 const int black_value = 100;
 #define S0 23  // light sensor, TCS3200
@@ -151,11 +154,11 @@ void Raise_grid (){
 }
 
 void setup() {
- lMotor.setMaxSpeed(1300); //r per min
- rMotor.setMaxSpeed(1300);
+ lMotor.setMaxSpeed(500); //r per min
+ rMotor.setMaxSpeed(500);
 
- lMotor.setAcceleration(600);
- rMotor.setAcceleration(600);
+ lMotor.setAcceleration(200);
+ rMotor.setAcceleration(200);
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
   pinMode(Lms3, OUTPUT);
@@ -177,7 +180,7 @@ void setup() {
 }
 
 void loop() {
-  bool currentButtonState = digitalRead(buttonPin);
+/*  bool currentButtonState = digitalRead(buttonPin);
 
 
  if (currentButtonState == HIGH && lastButtonState == LOW) {
@@ -187,21 +190,32 @@ void loop() {
   }
   
   lastButtonState = currentButtonState;
+  */
+
+  Serial.println(i);
+  i = i+1;
   
   if (run){
     lMotor.run();
     rMotor.run();
-    DBUG("1");
+
    switch (currentStep){
+      
       case 1:
-        DBUG("travel");
-        go(200);
+        StepMode(1);
+        go(400);
         currentStep = 2;
-        break;
+        Serial.println("201");
       
       case 2:
-        DBUG("200mm done");
-        break;
+        Serial.println(l_dl());
+        
+        
+        /*if (l_dl() == 0 && r_dl() == 0 ){
+          Serial.println("205");
+        }
+*/
+        
    
    }
 
