@@ -14,14 +14,12 @@ const int Rms3 = 36;
 const int grid_Motor = 7;
 const int buttonPin = 28;
 
-const int DBG = 0; //1=on
-
-
+int DBG = 1; //1=on
 unsigned long lastPrintTime = 0;
 
 int currentStep = 1;
 bool run = true ; 
-bool lastButtonState = HIGH;
+bool lastButtonState = LOW;
 
 int frequency = 0;
 const int black_value = 100;
@@ -48,7 +46,7 @@ long r_dl(){
 
 }
 
-void StepMode(stepMode){
+void StepMode(int stepMode){
   if(stepMode == 1){//both motors fullsteps
     STEPS_PER_REV = 200;
     digitalWrite(Rms1, LOW);
@@ -91,7 +89,7 @@ void StepMode(stepMode){
 // Calculate steps for movements
 int stepsForDistance(float distance_mm) {
 
-  return (int)((distance_mm / WHEEL_CIRCUMFERENCE) * STEPS_PER_REV);
+  return (int)((distance_mm / (WHEEL_CIRCUMFERENCE * 3.141592653)) * STEPS_PER_REV);
 }
 
 
@@ -136,7 +134,7 @@ void go(float distance){
   int steps = stepsForDistance(distance);
 
   rMotor.move(steps);
-  lMotor.move(steps);
+  lMotor.move(-steps);
 
 }
  
@@ -153,8 +151,8 @@ void Raise_grid (){
 }
 
 void setup() {
- lMotor.setMaxSpeed(1700); //r per min
- rMotor.setMaxSpeed(1700);
+ lMotor.setMaxSpeed(1300); //r per min
+ rMotor.setMaxSpeed(1300);
 
  lMotor.setAcceleration(600);
  rMotor.setAcceleration(600);
@@ -173,7 +171,7 @@ void setup() {
 
   
   
-  Serial.begin(750); 
+  Serial.begin(9600); 
 
   pinMode(buttonPin, INPUT);
 }
@@ -182,9 +180,7 @@ void loop() {
   bool currentButtonState = digitalRead(buttonPin);
 
 
- 
-
-  if (currentButtonState == LOW && lastButtonState == HIGH) {
+ if (currentButtonState == HIGH && lastButtonState == LOW) {
     
     run = !run;
     delay(500);
@@ -195,26 +191,30 @@ void loop() {
   if (run){
     lMotor.run();
     rMotor.run();
-    
-    if(currentStep == 1){
-      go(2000);
-
-      currentStep = 2;
+    DBUG("1");
+   switch (currentStep){
+      case 1:
+        DBUG("travel");
+        go(200);
+        currentStep = 2;
+        break;
+      
+      case 2:
+        DBUG("200mm done");
+        break;
    
-    }
-    if(currentStep ==2 ){
-      //more code
-    }
+   }
 
   }else{
     //whatever needs to stop
-    lmotor.stop()
-    rmotor.stop()
+    lMotor.stop();
+    rMotor.stop();
   }
-   
+  
+
+
 
 }
-
 
 
 
