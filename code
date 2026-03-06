@@ -1,4 +1,4 @@
-//v13,based on steve v13
+//v14,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -36,10 +36,10 @@ int i = 1 ;
 
 bool last_state = false;
 int frequency = 0;
-const int black_value = 38;
+const int black_value = 42;
 bool off_value_printed = false;
 int last_off_value = 0;
-bool black_line = frequency >= black_value;
+bool black_line = false;
 bool detect = true; //when true pritn out value
 #define S0 23  // light sensor, TCS3200
 #define S1 25
@@ -151,10 +151,10 @@ void detect_black_line(){
   digitalWrite(S3,LOW);
   digitalWrite(S0,HIGH); // Frequency scaling to 20%
   digitalWrite(S1,LOW);
-
-
+    frequency = pulseIn(out, HIGH);
+  black_line = (frequency >= black_value);
   
-  frequency = pulseIn(out, HIGH);
+
   
   /*if(frequency > black_value){
     dbug("Black Line Detected");
@@ -167,6 +167,7 @@ void detect_black_line(){
   if(!black_line){
     last_off_value = frequency;
     if (!off_value_printed){
+      Serial.print("last off line value:");
       Serial.println(last_off_value);
       off_value_printed = true; 
     }
@@ -221,6 +222,19 @@ void targetDistance(float distance, int speed,int turn){ //0 straight, 1 rt, -1 
   //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
 
 }
+
+void turn_90_Right (){
+  targetDistance(360, 800, -1);     
+  } 
+void turn_90_Left (){
+    targetDistance(360, 800, 1);      
+  }
+void turn_180_Left (){
+   targetDistance(720, 800, 1); 
+  }
+void turn_180_Right (){
+   targetDistance(720, 800, -1);      
+  }
  
 void Lower_grid (){
   digitalWrite(grid_Motor, HIGH);
@@ -243,11 +257,11 @@ void setup() {
  
  
  delay(500);
- lMotor.setMaxSpeed(2000); //r steps per sec
- rMotor.setMaxSpeed(2000);
+ lMotor.setMaxSpeed(1200); //r steps per sec
+ rMotor.setMaxSpeed(1200);
 
- lMotor.setAcceleration(1600); //steps per sec
- rMotor.setAcceleration(1600);
+ lMotor.setAcceleration(1000); //steps per sec
+ rMotor.setAcceleration(1000);
 
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
@@ -278,18 +292,7 @@ void setup() {
   digitalWrite(lEnable,HIGH);
   digitalWrite(rEnable,HIGH);
 }
-void turn_90_Right (){
-  targetDistance(360, 800, -1);     
-  } 
-void turn_90_Left (){
-    targetDistance(360, 800, 1);      
-  }
-void turn_180_Left (){
-   targetDistance(720, 800, 1); 
-  }
-void turn_180_Right (){
-   targetDistance(720, 800, -1);      
-  }
+
   
 void loop() {
  bool currentButtonState = digitalRead(buttonPin);
@@ -298,10 +301,11 @@ void loop() {
     dbug(String(currentButtonState));
     run = !run;
     delay(500);
-    currentTask=1; 
+
   }
   
   lastButtonState = currentButtonState;
+
   
   if (run){
     
@@ -346,28 +350,33 @@ void loop() {
         break;
         
 
-        }
+        
         
       case 3:
-        dbug("case 3");
+
+        digitalWrite(lEnable, LOW);   
+        digitalWrite(rEnable, LOW);   
+        rMotor.enableOutputs();        
+        lMotor.enableOutputs(); 
         detect_black_line();
         
         
         if(!black_line){
-          if (r_dl() == 0) {
-            rMotor.move(10000);  
-          }
-          if (l_dl() == 0) {
-            lMotor.move(10000);
-          }
+          if (r_dl() == 0) rMotor.move(10000);  
+          
+          if (l_dl() == 0) lMotor.move(10000);
+          rMotor.run();
+          lMotor.run();
+          
         } else {
 
           rMotor.stop();
           lMotor.stop();
-          lMotor.move(0);
-          rMotor.move(0);
-          
+          rMotor.setCurrentPosition(rMotor.currentPosition());
+          lMotor.setCurrentPosition(lMotor.currentPosition());
 
+          Serial.println("stop");
+          currentTask =4;
           
 
 
@@ -377,8 +386,8 @@ void loop() {
 
       }
    
-    }
-  }else{
+    
+    }else{
     //whatever else  needs to stop
     lMotor.stop();
     rMotor.stop();
