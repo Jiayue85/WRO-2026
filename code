@@ -1,4 +1,4 @@
-//v14,based on steve v13
+//v15,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -36,7 +36,7 @@ int i = 1 ;
 
 bool last_state = false;
 int frequency = 0;
-const int black_value = 42;
+const int black_value = 35;
 bool off_value_printed = false;
 int last_off_value = 0;
 bool black_line = false;
@@ -260,8 +260,8 @@ void setup() {
  lMotor.setMaxSpeed(1200); //r steps per sec
  rMotor.setMaxSpeed(1200);
 
- lMotor.setAcceleration(1000); //steps per sec
- rMotor.setAcceleration(1000);
+ lMotor.setAcceleration(800); //steps per sec
+ rMotor.setAcceleration(800);
 
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
@@ -354,17 +354,19 @@ void loop() {
         
       case 3:
 
-        digitalWrite(lEnable, LOW);   
-        digitalWrite(rEnable, LOW);   
+
         rMotor.enableOutputs();        
         lMotor.enableOutputs(); 
+        digitalWrite(lEnable, LOW);   
+        digitalWrite(rEnable, LOW);   
+
         detect_black_line();
-        
+        StepMode(1);
         
         if(!black_line){
           if (r_dl() == 0) rMotor.move(10000);  
           
-          if (l_dl() == 0) lMotor.move(10000);
+          if (l_dl() == 0) lMotor.move(-10000);
           rMotor.run();
           lMotor.run();
           
@@ -391,10 +393,8 @@ void loop() {
     //whatever else  needs to stop
     lMotor.stop();
     rMotor.stop();
-  }  
-
+  }
 }
-
 
 
 
