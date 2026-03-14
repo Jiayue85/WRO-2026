@@ -1,4 +1,4 @@
-//v15,based on steve v13
+//v16,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -323,8 +323,8 @@ void loop() {
         targetDistance(1200, 200, 0);
         
         dbug("start");   
-        digitalWrite(lEnable,LOW);
-        digitalWrite(rEnable,LOW);
+        rMotor.enableOutputs();
+        lMotor.enableOutputs();
         while ((l_dl() != 0) || (r_dl() != 0)){
         
           if (abs(l_dl())>=0)lMotor.run();
@@ -335,9 +335,11 @@ void loop() {
           dbug(str1);
         }
         delay(500);
+
+        lMotor.disableOutputs();
+        rMotor.disableOut
         
-        digitalWrite(lEnable,HIGH);
-        digitalWrite(rEnable,HIGH);
+
         currentTask=2;   
         Serial.println((String(millis())));
         break;   
@@ -357,8 +359,7 @@ void loop() {
 
         rMotor.enableOutputs();        
         lMotor.enableOutputs(); 
-        digitalWrite(lEnable, LOW);   
-        digitalWrite(rEnable, LOW);   
+ 
 
         detect_black_line();
         StepMode(1);
@@ -395,6 +396,3 @@ void loop() {
     rMotor.stop();
   }
 }
-
-
-
