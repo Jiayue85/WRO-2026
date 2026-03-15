@@ -1,4 +1,4 @@
-//v16,based on steve v13
+//v17,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -47,11 +47,12 @@ bool detect = true; //when true pritn out value
 #define S3 26
 #define out 22
 
-const float TRACK_WIDTH = 1000.0 ; //mm, distance from the center of the wheels
+const float TRACK_WIDTH = 245.0 ; //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0; // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
 int STEPS_PER_REV = 200;
-const float STEPS_FOR_90_TURN = WHEEL_DIAMETER * STEPS_PER_REV / 4.0 / TRACK_WIDTH;
+int DEGREE = 1;//how much degrees you want ot turn
+float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER)
 
 void dbug(String msg) {
   
@@ -222,19 +223,19 @@ void targetDistance(float distance, int speed,int turn){ //0 straight, 1 rt, -1 
   //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
 
 }
-
-void turn_90_Right (){
-  targetDistance(360, 800, -1);     
+void turn(float distance,int speed)
+/*void turn_90_Right (){
+  targetDistance(DEGREES_TURN, 800, -1);     
   } 
 void turn_90_Left (){
-    targetDistance(360, 800, 1);      
+    targetDistance(, 800, 1);      
   }
 void turn_180_Left (){
    targetDistance(720, 800, 1); 
   }
 void turn_180_Right (){
    targetDistance(720, 800, -1);      
-  }
+  }*/
  
 void Lower_grid (){
   digitalWrite(grid_Motor, HIGH);
