@@ -1,4 +1,4 @@
-//v18,based on steve v13
+//v19,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -189,9 +189,37 @@ void detect_black_line(){
 
 }
 
+void move_until_balck_line(int mode){
+  StepMode(mode);
+  detect_black_line();
+
+        
+  if(!black_line){
+   if (r_dl() == 0) rMotor.move(10000);  
+          
+    if (l_dl() == 0) lMotor.move(-10000);
+    rMotor.run();
+   lMotor.run();
+          
+  } else {
+
+   rMotor.stop();
+   lMotor.stop();
+
+
+    Serial.println("stop");
+
+    }
+}
+
 // ################################################### targetDistance
-void targetDistance(float distance, int speed,int turn){ //0 straight, 1 rt, -1 lt
-  
+void targetDistance(float distance, int speed, int accel,int turn){ //0 straight, 1 rt, -1 lt
+  lMotor.setMaxSpeed(speed); //r steps per sec
+  rMotor.setMaxSpeed(speed);
+
+  lMotor.setAcceleration(accel); //steps per sec
+  rMotor.setAcceleration(accel);
+
   
   int steps = stepsForDistance(distance);
   long rSteps=0; 
@@ -321,7 +349,7 @@ void loop() {
         lMotor.setCurrentPosition(0);
         rMotor.setCurrentPosition(0);
 
-        targetDistance(1200, 200, 0);
+        targetDistance(1200, 1000, 600,0);
         
         dbug("start");   
 
@@ -359,32 +387,10 @@ void loop() {
 
         rMotor.disableOutputs();        
         lMotor.disableOutputs(); 
- 
-
-        detect_black_line();
-        StepMode(1);
-        
-        if(!black_line){
-          if (r_dl() == 0) rMotor.move(10000);  
-          
-          if (l_dl() == 0) lMotor.move(-10000);
-          rMotor.run();
-          lMotor.run();
-          
-        } else {
-
-          rMotor.stop();
-          lMotor.stop();
-          rMotor.setCurrentPosition(rMotor.currentPosition());
-          lMotor.setCurrentPosition(lMotor.currentPosition());
-
-          Serial.println("stop");
-          currentTask =4;
-          
+        move_until_balck_line(1);
 
 
-        }
-
+        currentTask =4;
         break;
 
       }
