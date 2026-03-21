@@ -1,4 +1,4 @@
-//v17,based on steve v13
+//v18,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -52,7 +52,7 @@ const float WHEEL_DIAMETER = 88.0; // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
 int STEPS_PER_REV = 200;
 int DEGREE = 1;//how much degrees you want ot turn
-float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER)
+float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
 
 void dbug(String msg) {
   
@@ -223,7 +223,7 @@ void targetDistance(float distance, int speed,int turn){ //0 straight, 1 rt, -1 
   //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
 
 }
-void turn(float distance,int speed)
+//void turn(float distance,int speed)
 /*void turn_90_Right (){
   targetDistance(DEGREES_TURN, 800, -1);     
   } 
@@ -258,11 +258,11 @@ void setup() {
  
  
  delay(500);
- lMotor.setMaxSpeed(1200); //r steps per sec
- rMotor.setMaxSpeed(1200);
+ lMotor.setMaxSpeed(1100); //r steps per sec
+ rMotor.setMaxSpeed(1100);
 
- lMotor.setAcceleration(800); //steps per sec
- rMotor.setAcceleration(800);
+ lMotor.setAcceleration(600); //steps per sec
+ rMotor.setAcceleration(600);
 
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
@@ -312,10 +312,10 @@ void loop() {
     
     switch (currentTask){
       case 1:
-        Serial.println((String(millis())));
+        //Serial.println((String(millis())));
         dbug("case 1");
-        rMotor.enableOutputs();
-        lMotor.enableOutputs();
+        rMotor.disableOutputs();
+        lMotor.disableOutputs();
         StepMode(1);
         
         lMotor.setCurrentPosition(0);
@@ -324,21 +324,20 @@ void loop() {
         targetDistance(1200, 200, 0);
         
         dbug("start");   
-        rMotor.enableOutputs();
-        lMotor.enableOutputs();
+
         while ((l_dl() != 0) || (r_dl() != 0)){
         
           if (abs(l_dl())>=0)lMotor.run();
           if (abs(r_dl())>=0)rMotor.run();
           
-          String str1="!";
-          str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
-          dbug(str1);
+         // String str1="!";
+          //str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
+          //dbug(str1);
         }
         delay(500);
 
-        lMotor.disableOutputs();
-        rMotor.disableOut
+        lMotor.enableOutputs();
+        rMotor.enableOutputs();
         
 
         currentTask=2;   
@@ -358,8 +357,8 @@ void loop() {
       case 3:
 
 
-        rMotor.enableOutputs();        
-        lMotor.enableOutputs(); 
+        rMotor.disableOutputs();        
+        lMotor.disableOutputs(); 
  
 
         detect_black_line();
