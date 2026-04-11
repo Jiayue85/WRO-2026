@@ -1,4 +1,4 @@
-//v19,based on steve v13
+//v20,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -47,12 +47,12 @@ bool detect = true; //when true pritn out value
 #define S3 26
 #define out 22
 
-const float TRACK_WIDTH = 245.0 ; //mm, distance from the center of the wheels
+const float TRACK_WIDTH = 239.0; //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0; // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
 int STEPS_PER_REV = 200;
-int DEGREE = 1;//how much degrees you want ot turn
-float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+//int DEGREE = 1;//how much degrees you want ot turn
+float DEGREES_TURN =0;// STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
 
 void dbug(String msg) {
   
@@ -230,7 +230,7 @@ void targetDistance(float distance, int speed, int accel,int turn){ //0 straight
             rSteps = steps; 
             lSteps = -steps;
             break;
-    case 1: 
+    case 1: //left
             rSteps=-steps;   
             lSteps=-steps;          
             break;
@@ -252,11 +252,18 @@ void targetDistance(float distance, int speed, int accel,int turn){ //0 straight
 
 }
 //void turn(float distance,int speed)
+
+void span(int DEGREE) {
+  DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+  targetDistance(DEGREES_TURN,1000,400,((DEGREE<0) ? 1 :-1));
+  //return 1
+
+}
 /*void turn_90_Right (){
-  targetDistance(DEGREES_TURN, 800, -1);     
+  targetDistance(360, 800, -1);     
   } 
 void turn_90_Left (){
-    targetDistance(, 800, 1);      
+    targetDistance(360, 800, 1);      
   }
 void turn_180_Left (){
    targetDistance(720, 800, 1); 
@@ -349,7 +356,7 @@ void loop() {
         lMotor.setCurrentPosition(0);
         rMotor.setCurrentPosition(0);
 
-        targetDistance(1200, 1000, 600,0);
+        targetDistance(1600, 1000, 600,0);
         
         dbug("start");   
 
@@ -372,17 +379,15 @@ void loop() {
         Serial.println((String(millis())));
         break;   
       case 2:
-        //dbug("case 2");
-        
-       
-        currentTask = 3;
-        //Serial.println(l_dl());
+        span(180);
+        break;
+      
+      case 3:
+        targetDistance(1600,1000,600,0);
         break;
         
-
         
-        
-      case 3:
+      /*case 4:
 
 
         rMotor.disableOutputs();        
@@ -390,9 +395,9 @@ void loop() {
         move_until_balck_line(1);
 
 
-        currentTask =4;
+        currentTask =5;
         break;
-
+        */
       }
    
     
@@ -400,5 +405,6 @@ void loop() {
     //whatever else  needs to stop
     lMotor.stop();
     rMotor.stop();
+    
   }
 }
