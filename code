@@ -1,4 +1,4 @@
-//v20,based on steve v13
+//v21,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -254,7 +254,10 @@ void targetDistance(float distance, int speed, int accel,int turn){ //0 straight
 //void turn(float distance,int speed)
 
 void span(int DEGREE) {
-  DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+  // OLD (buggy): integer division makes DEGREE/360 == 0 for <360
+  // DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+  float deg_ratio = (float)DEGREE / 360.0f;
+  DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH * 3.1415926f * deg_ratio) / WHEEL_DIAMETER);
   targetDistance(DEGREES_TURN,1000,400,((DEGREE<0) ? 1 :-1));
   //return 1
 
@@ -274,8 +277,11 @@ void turn_180_Right (){
  
 void Lower_grid (){
   digitalWrite(grid_Motor, HIGH);
-  digitalWrite(grid_Motor, LOW);
+  // OLD (too short pulse):
+  // digitalWrite(grid_Motor, LOW);
+  // delay(100);
   delay(100);
+  digitalWrite(grid_Motor, LOW);
 }
 
 void Raise_grid (){
@@ -349,8 +355,11 @@ void loop() {
       case 1:
         //Serial.println((String(millis())));
         dbug("case 1");
-        rMotor.disableOutputs();
-        lMotor.disableOutputs();
+        // OLD (disables outputs before movement):
+        // rMotor.disableOutputs();
+        // lMotor.disableOutputs();
+        rMotor.enableOutputs();
+        lMotor.enableOutputs();
         StepMode(1);
         
         lMotor.setCurrentPosition(0);
@@ -362,8 +371,11 @@ void loop() {
 
         while ((l_dl() != 0) || (r_dl() != 0)){
         
-          if (abs(l_dl())>=0)lMotor.run();
-          if (abs(r_dl())>=0)rMotor.run();
+          // OLD (always true):
+          // if (abs(l_dl())>=0)lMotor.run();
+          // if (abs(r_dl())>=0)rMotor.run();
+          if (l_dl() != 0) lMotor.run();
+          if (r_dl() != 0) rMotor.run();
           
          // String str1="!";
           //str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
@@ -380,10 +392,20 @@ void loop() {
         break;   
       case 2:
         span(180);
+        while ((l_dl() != 0) || (r_dl() != 0)){
+          if (l_dl() != 0) lMotor.run();
+          if (r_dl() != 0) rMotor.run();
+        }
+        currentTask=3;
         break;
       
       case 3:
         targetDistance(1600,1000,600,0);
+        while ((l_dl() != 0) || (r_dl() != 0)){
+          if (l_dl() != 0) lMotor.run();
+          if (r_dl() != 0) rMotor.run();
+        }
+        currentTask=4;
         break;
         
         
