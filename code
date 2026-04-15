@@ -1,38 +1,34 @@
-//v21,based on steve v13
+//v22,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
 // New functions to turn l  & r 180 & 90
 #include <AccelStepper.h>
-AccelStepper lMotor(1, 7, 6 ); //left (driverboard,step,dir)
+AccelStepper lMotor(1, 7, 6);  //left (driverboard,step,dir)
 const int lEnable = 4;
-AccelStepper rMotor(1,11,10); //right
+AccelStepper rMotor(1, 11, 10);  //right
 const int rEnable = 9;
-
-
 //defines pins numbers
 //AccelStepper lMotor(1, 3, 2 ); //left (driverboard,step,dir)
 const int Lms1 = 33;
 const int Lms2 = 35;
 const int Lms3 = 37;
-
 //AccelStepper rMotor(1,11,10); //right
 const int Rms1 = 32;
 const int Rms2 = 34;
 const int Rms3 = 36;
 
+
 const int grid_Motor = 8;
 const int buttonPin = 28;
 
-int DBG = 1; //1=on
-String msg="";
+int DBG = 1;  //1=on
+String msg = "";
 unsigned long lastPrintTime = 0;
 
 int currentTask = 0;
-bool run = true ; 
+bool run = true;
 bool lastButtonState = LOW;
-
-int i = 1 ;
 
 bool last_state = false;
 int frequency = 0;
@@ -40,83 +36,98 @@ const int black_value = 35;
 bool off_value_printed = false;
 int last_off_value = 0;
 bool black_line = false;
-bool detect = true; //when true pritn out value
-#define S0 23  // light sensor, TCS3200
+bool detect = true;  //when true pritn out value
+#define S0 23        // light sensor, TCS3200
 #define S1 25
 #define S2 24
 #define S3 26
 #define out 22
 
-const float TRACK_WIDTH = 239.0; //mm, distance from the center of the wheels
-const float WHEEL_DIAMETER = 88.0; // mm
-const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER; // ~276.46 mm
+
+const float TRACK_WIDTH = 239.0;                             //mm, distance from the center of the wheels
+const float WHEEL_DIAMETER = 88.0;                           // mm
+const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
 int STEPS_PER_REV = 200;
-//int DEGREE = 1;//how much degrees you want ot turn
-float DEGREES_TURN =0;// STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+float degree = 1.0;
+
+// float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
+
+
+#define CAM Serial1
+const int MAX_LINE = 200;
+char lineBuf[MAX_LINE];
+char block1, block2, block3, block4;
+char block5, block6, block7, block8;
+char block9, block10, block11, block12;
+
+
 
 void dbug(String msg) {
-  
-  if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
-    lastPrintTime = millis();  
-    Serial.println(msg);
 
+  if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
+    lastPrintTime = millis();
+    Serial.println(msg);
   }
- 
 }
 
-long l_dl(){
+long l_dl() {
 
   return lMotor.distanceToGo();
 }
 
-long r_dl(){
+long r_dl() {
   return rMotor.distanceToGo();
-
 }
 
-void StepMode(int stepMode){
-  if(stepMode == 1){//both motors fullsteps
-    STEPS_PER_REV = 200;
-    digitalWrite(Rms1, LOW);
-    digitalWrite(Rms2, LOW);
-    digitalWrite(Rms3, LOW);
-    digitalWrite(Lms1, LOW);
-    digitalWrite(Lms2, LOW);
-    digitalWrite(Lms3, LOW);
-  }
-  if(stepMode == 2){// Both motors half steps
-    STEPS_PER_REV = 400;
-    digitalWrite(Rms1, HIGH);
-    digitalWrite(Rms2, LOW);
-    digitalWrite(Rms3, LOW);
-    digitalWrite(Lms1, HIGH);
-    digitalWrite(Lms2, LOW);
-    digitalWrite(Lms3, LOW);
-  }
-  if(stepMode == 3){ //both motors eigth steps
-    STEPS_PER_REV = 800;
-    digitalWrite(Rms1, HIGH);
-    digitalWrite(Rms2, HIGH);
-    digitalWrite(Rms3, LOW);
-    digitalWrite(Lms1, HIGH);
-    digitalWrite(Lms2, HIGH);
-    digitalWrite(Lms3, LOW);
-  }
-   if(stepMode == 4){ //both motors sixteenth steps
-    STEPS_PER_REV = 1600;
-    digitalWrite(Rms1, HIGH);
-    digitalWrite(Rms2, HIGH);
-    digitalWrite(Rms3, HIGH);
-    digitalWrite(Lms1, HIGH);
-    digitalWrite(Lms2, HIGH);
-    digitalWrite(Lms3, HIGH);
+void StepMode(int stepMode) {
+  switch(stepMode){
+    case 1:
+      STEPS_PER_REV = 200;  //both motors fullsteps
+      digitalWrite(Rms1, LOW);
+      digitalWrite(Rms2, LOW);
+      digitalWrite(Rms3, LOW);
+      digitalWrite(Lms1, LOW);
+      digitalWrite(Lms2, LOW);
+      digitalWrite(Lms3, LOW);
+      break;
+    case 2:  // Both motors half steps
+      STEPS_PER_REV = 400;
+      digitalWrite(Rms1, HIGH);
+      digitalWrite(Rms2, LOW);
+      digitalWrite(Rms3, LOW);
+      digitalWrite(Lms1, HIGH);
+      digitalWrite(Lms2, LOW);
+      digitalWrite(Lms3, LOW);
+      break;
+    case 3:
+      STEPS_PER_REV = 800;  //both motors eigth steps
+      digitalWrite(Rms1, HIGH);
+      digitalWrite(Rms2, HIGH);
+      digitalWrite(Rms3, LOW);
+      digitalWrite(Lms1, HIGH);
+      digitalWrite(Lms2, HIGH);
+      digitalWrite(Lms3, LOW);
+      break;
+    case 4:
+      STEPS_PER_REV = 1600;  //both motors sixteenth steps
+      digitalWrite(Rms1, HIGH);
+      digitalWrite(Rms2, HIGH);
+      digitalWrite(Rms3, HIGH);
+      digitalWrite(Lms1, HIGH);
+      digitalWrite(Lms2, HIGH);
+      digitalWrite(Lms3, HIGH);
+      break;
   }
 }
 
+//calculates the steps needed for the turn
+float stepsForTuring(float degree){
+  return (float) (((TRACK_WIDTH *3.1415926*(degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
+}
 
 // Calculate steps for movements
-int stepsForDistance(float distance_mm) {
-  return (int)((distance_mm / (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
+int stepsForDistance(float distance) {//mm
+  return (int)((distance/ (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
 }
 
 
@@ -130,33 +141,32 @@ int stepsForDistance(float distance_mm) {
 }
 
 */
-void current_frequency(){
-  digitalWrite(S2,HIGH); //clear, no filter
-  digitalWrite(S3,LOW);
-  digitalWrite(S0,HIGH); // Frequency scaling to 20%
-  digitalWrite(S1,LOW);
+void current_frequency() {
+  digitalWrite(S2, HIGH);  //clear, no filter
+  digitalWrite(S3, LOW);
+  digitalWrite(S0, HIGH);  // Frequency scaling to 20%
+  digitalWrite(S1, LOW);
 
-    
+
   frequency = pulseIn(out, HIGH);
-  
+
 
   Serial.println("Freq: ");
   Serial.println(frequency);
-
 }
 
-void detect_black_line(){
-  if(!detect) return;
-  
-  digitalWrite(S2,HIGH); //clear, no filter
-  digitalWrite(S3,LOW);
-  digitalWrite(S0,HIGH); // Frequency scaling to 20%
-  digitalWrite(S1,LOW);
-    frequency = pulseIn(out, HIGH);
-  black_line = (frequency >= black_value);
-  
+void detect_black_line() {
+  if (!detect) return;
 
-  
+  digitalWrite(S2, HIGH);  //clear, no filter
+  digitalWrite(S3, LOW);
+  digitalWrite(S0, HIGH);  // Frequency scaling to 20%
+  digitalWrite(S1, LOW);
+  frequency = pulseIn(out, HIGH);
+  black_line = (frequency >= black_value);
+
+
+
   /*if(frequency > black_value){
     dbug("Black Line Detected");
     // Add motor control code here
@@ -165,102 +175,127 @@ void detect_black_line(){
   }*/
 
 
-  if(!black_line){
+  if (!black_line) {
     last_off_value = frequency;
-    if (!off_value_printed){
+    if (!off_value_printed) {
       Serial.print("last off line value:");
       Serial.println(last_off_value);
-      off_value_printed = true; 
+      off_value_printed = true;
     }
   }
 
 
-  if (black_line  && !last_state) { // Print black value once when first hitting the black line
+  if (black_line && !last_state) {  // Print black value once when first hitting the black line
     Serial.println("black line");
     Serial.print("frequency: ");
     Serial.println(frequency);
-    off_value_printed = false; 
+    off_value_printed = false;
   }
 
 
 
   last_state = black_line;
-  
-
 }
 
-void move_until_balck_line(int mode){
+void move_until_balck_line(int mode) {
   StepMode(mode);
   detect_black_line();
 
-        
-  if(!black_line){
-   if (r_dl() == 0) rMotor.move(10000);  
-          
+
+  if (!black_line) {
+    if (r_dl() == 0) rMotor.move(10000);
+
     if (l_dl() == 0) lMotor.move(-10000);
     rMotor.run();
-   lMotor.run();
-          
+    lMotor.run();
+
   } else {
 
-   rMotor.stop();
-   lMotor.stop();
+    rMotor.stop();
+    lMotor.stop();
 
 
     Serial.println("stop");
-
-    }
+  }
 }
 
 // ################################################### targetDistance
-void targetDistance(float distance, int speed, int accel,int turn){ //0 straight, 1 rt, -1 lt
-  lMotor.setMaxSpeed(speed); //r steps per sec
+void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 straight, 1 rt, -1 lt
+  lMotor.setMaxSpeed(speed);                                           //r steps per sec
   rMotor.setMaxSpeed(speed);
 
-  lMotor.setAcceleration(accel); //steps per sec
+  lMotor.setAcceleration(accel);  //steps per sec
   rMotor.setAcceleration(accel);
 
-  
-  int steps = stepsForDistance(distance);
-  long rSteps=0; 
-  long lSteps=0;
 
-  switch (turn){
-    case 0:  
-            rSteps = steps; 
-            lSteps = -steps;
-            break;
-    case 1: //left
-            rSteps=-steps;   
-            lSteps=-steps;          
-            break;
+  int steps = stepsForDistance(distance_mm);
+  long rSteps = 0;
+  long lSteps = 0;
+//right wheel positive = forwards
+//left wheel negative = forwards
+  switch (turn) {
+    case 0:
+      rSteps = steps;
+      lSteps = -steps;
+      break;
+    case 1:  //left
+      rSteps = -steps;
+      lSteps = -steps;
+      break;
     case -1:
-      rSteps=steps; 
-      lSteps=steps;
+      rSteps = steps;
+      lSteps = steps;
+      break;
+  }
+  
+  rMotor.move(rSteps);  //move relative
+  lMotor.move(lSteps);
+  //N.B. distance, speed, maxSpeed and acceleration affect one another
+
+
+
+  // rMotor.move(steps);
+  // lMotor.move(-steps);
+
+  //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
+}
+//void turn(float distance,int speed)
+void targetSteps(long steps, int speed, int accel, int turn) {
+  lMotor.setMaxSpeed(speed);
+  rMotor.setMaxSpeed(speed);
+  lMotor.setAcceleration(accel);
+  rMotor.setAcceleration(accel);
+
+  long rSteps = 0;
+  long lSteps = 0;
+
+  switch (turn) {
+    case 0:
+      rSteps = steps;
+      lSteps = -steps;
+      break;
+    case 1:
+      rSteps = -steps;
+      lSteps = -steps;
+      break;
+    case -1:
+      rSteps = steps;
+      lSteps = steps;
       break;
   }
 
-  //N.B. distance, speed, maxSpeed and acceleration affect one another
- 
-  rMotor.move(rSteps); //move relative
+  rMotor.move(rSteps);
   lMotor.move(lSteps);
-  
-  // rMotor.move(steps);
-  // lMotor.move(-steps);   
-       
-  //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
-
 }
-//void turn(float distance,int speed)
 
-void span(int DEGREE) {
+void turn(int DEGREE) {
   // OLD (buggy): integer division makes DEGREE/360 == 0 for <360
   // DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
-  float deg_ratio = (float)DEGREE / 360.0f;
-  DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH * 3.1415926f * deg_ratio) / WHEEL_DIAMETER);
-  targetDistance(DEGREES_TURN,1000,400,((DEGREE<0) ? 1 :-1));
+  //float deg_ratio = (float)DEGREE / 360.0;
+  // DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH * 3.1415926f * deg_ratio) / WHEEL_DIAMETER);
+  int direction = (DEGREE < 0) ? 1 : -1;
+  targetSteps(stepsForTuring(DEGREE), 1000, 400, direction);
   //return 1
-
 }
 /*void turn_90_Right (){
   targetDistance(360, 800, -1);     
@@ -273,9 +308,9 @@ void turn_180_Left (){
   }
 void turn_180_Right (){
    targetDistance(720, 800, -1);      
-  }*/
- 
-void Lower_grid (){
+  }
+*/
+void Lower_grid() {
   digitalWrite(grid_Motor, HIGH);
   // OLD (too short pulse):
   // digitalWrite(grid_Motor, LOW);
@@ -284,26 +319,32 @@ void Lower_grid (){
   digitalWrite(grid_Motor, LOW);
 }
 
-void Raise_grid (){
-  digitalWrite(grid_Motor, HIGH); 
+void Raise_grid() {
+  digitalWrite(grid_Motor, HIGH);
   delay(100);
   digitalWrite(grid_Motor, LOW);
-} 
-  
+}
+
+void scan(){
+  CAM.println("S");
+}
+
+
 
 void setup() {
+  CAM.begin(115200);
 
- Serial.begin(115200);
- lMotor.setEnablePin(lEnable);
- rMotor.setEnablePin(rEnable);
- 
- 
- delay(500);
- lMotor.setMaxSpeed(1100); //r steps per sec
- rMotor.setMaxSpeed(1100);
+  Serial.begin(115200);
+  lMotor.setEnablePin(lEnable);
+  rMotor.setEnablePin(rEnable);
 
- lMotor.setAcceleration(600); //steps per sec
- rMotor.setAcceleration(600);
+
+  delay(500);
+  lMotor.setMaxSpeed(1100);  //r steps per sec
+  rMotor.setMaxSpeed(1100);
+
+  lMotor.setAcceleration(600);  //steps per sec
+  rMotor.setAcceleration(600);
 
   pinMode(Lms1, OUTPUT);
   pinMode(Lms2, OUTPUT);
@@ -318,7 +359,7 @@ void setup() {
   pinMode(S3, OUTPUT);
   pinMode(out, INPUT);
 
-  dbug("setup"); 
+  dbug("setup");
 
   pinMode(buttonPin, INPUT);
   pinMode(lEnable, OUTPUT);
@@ -331,102 +372,108 @@ void setup() {
   // lMotor.run();
   // delay(1000);
   currentTask = 1;
-  digitalWrite(lEnable,HIGH);
-  digitalWrite(rEnable,HIGH);
+  digitalWrite(lEnable, LOW);
+  digitalWrite(rEnable, LOW);
 }
 
-  
-void loop() {
- bool currentButtonState = digitalRead(buttonPin);
 
- if (currentButtonState == HIGH && lastButtonState == LOW) {
+void loop() {
+  /*bool currentButtonState = digitalRead(buttonPin);
+
+  if (currentButtonState == HIGH && lastButtonState == LOW) {
     dbug(String(currentButtonState));
     run = !run;
     delay(500);
-
   }
-  
-  lastButtonState = currentButtonState;
 
-  
-  if (run){
-    
-    switch (currentTask){
+  lastButtonState = currentButtonState;*/
+
+
+  if (run) {
+
+    switch (currentTask) {
       case 1:
         //Serial.println((String(millis())));
         dbug("case 1");
         // OLD (disables outputs before movement):
         // rMotor.disableOutputs();
         // lMotor.disableOutputs();
-        rMotor.enableOutputs();
-        lMotor.enableOutputs();
+        // rMotor.enableOutputs();
+        // lMotor.enableOutputs();
         StepMode(1);
-        
-        lMotor.setCurrentPosition(0);
-        rMotor.setCurrentPosition(0);
 
-        targetDistance(1600, 1000, 600,0);
+        // lMotor.setCurrentPosition(0);
+        // rMotor.setCurrentPosition(0);
         
-        dbug("start");   
+        targetDistance(1600, 1000, 600, 0);
 
-        while ((l_dl() != 0) || (r_dl() != 0)){
+        dbug("start");
+
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }   
+
         
-          // OLD (always true):
-          // if (abs(l_dl())>=0)lMotor.run();
-          // if (abs(r_dl())>=0)rMotor.run();
-          if (l_dl() != 0) lMotor.run();
-          if (r_dl() != 0) rMotor.run();
-          
-         // String str1="!";
-          //str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
-          //dbug(str1);
-        }
-        delay(500);
-
-        lMotor.enableOutputs();
-        rMotor.enableOutputs();
         
+        // while ((l_dl() != 0) || (r_dl() != 0)) {
 
-        currentTask=2;   
+        //   // OLD (always true):
+        //   // if (abs(l_dl())>=0)lMotor.run();
+        //   // if (abs(r_dl())>=0)rMotor.run();
+        //   if (l_dl() != 0) lMotor.run();
+        //   if (r_dl() != 0) rMotor.run();
+
+        //   // String str1="!";
+        //   //str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
+        //   //dbug(str1);
+        // }
+
+
+        // lMotor.enableOutputs();
+        // rMotor.enableOutputs();
+
+
+        currentTask = 2;
         Serial.println((String(millis())));
-        break;   
+        break;
       case 2:
-        span(180);
-        while ((l_dl() != 0) || (r_dl() != 0)){
+        turn(180);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
         }
-        currentTask=3;
+        currentTask = 3;
         break;
-      
+
       case 3:
-        targetDistance(1600,1000,600,0);
-        while ((l_dl() != 0) || (r_dl() != 0)){
+        Serial.println("case 3");
+        targetDistance(1600, 1000, 600, 0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
         }
-        currentTask=4;
+        currentTask = 4;
         break;
-        
-        
-      /*case 4:
 
 
-        rMotor.disableOutputs();        
-        lMotor.disableOutputs(); 
-        move_until_balck_line(1);
+        case 4:
+
+
+        // rMotor.disableOutputs();        
+        // lMotor.disableOutputs(); 
+        // move_until_balck_line(1);
 
 
         currentTask =5;
         break;
-        */
-      }
-   
-    
-    }else{
+        
+    }
+
+
+  } else {
     //whatever else  needs to stop
     lMotor.stop();
     rMotor.stop();
-    
   }
 }
