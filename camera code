@@ -75,35 +75,42 @@ def classify_roi(img, roi):
 # -------------------------
 
 
-
 while True:
-    img = sensor.snapshot()  # ALWAYS grab a frame
 
-    results = []
+    img = sensor.snapshot().lens_corr(1.8)
 
-    # Draw + classify every frame (for IDE display)
-    for roi in ROIS:
+    # draw grid + live detection (for IDE only)
+    live_results = []
+
+    for i, roi in enumerate(ROIS):
         color = classify_roi(img, roi)
-        results.append(color)
+        live_results.append(color)
 
         x, y, w, h = roi
         img.draw_rectangle(roi, color=COLOR_MAP.get(color, (255, 0, 0)))
         img.draw_string(x + 5, y + 5, color, color=(255, 255, 255), scale=2)
 
-    # Handle UART commands separately (non-blocking)
+
+    try:
+        history
+    except NameError:
+        history = []
+
+    history.append(live_results)
+
+    if len(history) > 5:
+        history.pop(0)
+
+    results = []
+
+    for i in range(len(ROIS)):
+        votes = [h[i] for h in history]
+        results.append(max(set(votes), key=votes.count))
+
+
     if uart.any():
         cmd = uart.read(1)
 
         if cmd == b'S':
             uart.write("C:" + ",".join(results) + "\n")
-
-        elif cmd == b'C':
-            labs = []
-            for roi in ROIS:
-                stats = img.get_statistics(roi=roi)
-                labs.append("(%d,%d,%d)" % (
-                    stats.l_mean(), stats.a_mean(), stats.b_mean()
-                ))
-            uart.write("LAB:" + ",".join(labs) + "\n")
-
 
