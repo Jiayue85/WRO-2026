@@ -13,14 +13,25 @@ GRID_COLS = 4
 FRAME_W = 160
 FRAME_H = 120
 
+history = []
+HISTORY_SIZE = 5
+
 THRESHOLDS = {
-    "W": (60, 100, -15, 15, -15, 15),   # white
+    "W": (70, 100, -8, 8, -8, 8),                # white
     "B": (0, 60, -10, 10, -80, -10),    # blue
     "G": (0, 70, -80, -20, -10, 40),    # green
     "Y": (40, 100, -10, 20, 20, 80),    # yellow
 }
 
-MIN_PIXELS = 80
+COLOR_MAP = {
+    "W": (255, 255, 255),
+    "B": (0, 0, 255),
+    "G": (0, 255, 0),
+    "Y": (255, 255, 0),
+    "?": (255, 0, 0)
+}
+
+MIN_PIXELS = 150
 
 # -------------------------
 # INIT
@@ -28,9 +39,12 @@ MIN_PIXELS = 80
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QQVGA)
+sensor.set_auto_gain(True)
+sensor.set_auto_whitebal(True)
+sensor.skip_frames(time=2000)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
-sensor.skip_frames(time=2000)
+
 
 uart = UART(UART_PORT, UART_BAUD, timeout_char=1000)
 
@@ -59,21 +73,37 @@ def classify_roi(img, roi):
 # -------------------------
 # MAIN LOOP
 # -------------------------
+
+
+
 while True:
+    img = sensor.snapshot()  # ALWAYS grab a frame
+
+    results = []
+
+    # Draw + classify every frame (for IDE display)
+    for roi in ROIS:
+        color = classify_roi(img, roi)
+        results.append(color)
+
+        x, y, w, h = roi
+        img.draw_rectangle(roi, color=COLOR_MAP.get(color, (255, 0, 0)))
+        img.draw_string(x + 5, y + 5, color, color=(255, 255, 255), scale=2)
+
+    # Handle UART commands separately (non-blocking)
     if uart.any():
         cmd = uart.read(1)
 
         if cmd == b'S':
-            # Scan and send colors
-            img = sensor.snapshot()
-            results = [classify_roi(img, roi) for roi in ROIS]
             uart.write("C:" + ",".join(results) + "\n")
 
         elif cmd == b'C':
-            # Calibration: send LAB means for all 12 ROIs
-            img = sensor.snapshot()
             labs = []
             for roi in ROIS:
                 stats = img.get_statistics(roi=roi)
-                labs.append("(%d,%d,%d)" % (stats.l_mean(), stats.a_mean(), stats.b_mean()))
+                labs.append("(%d,%d,%d)" % (
+                    stats.l_mean(), stats.a_mean(), stats.b_mean()
+                ))
             uart.write("LAB:" + ",".join(labs) + "\n")
+
+
