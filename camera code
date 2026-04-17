@@ -1,3 +1,7 @@
+# OpenMV M7
+# 3x4 fixed grid, detects W/B/G/Y, smooths over 5 frames, replies on 'S' with:
+# C:W,B,G,Y,... (12 values)
+
 import sensor, image, time
 from pyb import UART
 
@@ -17,9 +21,9 @@ history = []
 HISTORY_SIZE = 5
 
 THRESHOLDS = {
-    "W": (65, 100, -10, 10, -10, 10),             # white
+    "W": (65, 100, -10, 10, -10, 10),   # white
     "B": (0, 60, -10, 10, -80, -10),    # blue
-    "G": (15, 80, -60, -16, -20, 40),    # green
+    "G": (15, 80, -60, -16, -20, 40),   # green
     "Y": (40, 100, -10, 20, 20, 80),    # yellow
 }
 
@@ -44,7 +48,6 @@ sensor.set_auto_whitebal(True)
 sensor.skip_frames(time=2000)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
-
 
 uart = UART(UART_PORT, UART_BAUD, timeout_char=1000)
 
@@ -73,15 +76,10 @@ def classify_roi(img, roi):
 # -------------------------
 # MAIN LOOP
 # -------------------------
-
-
 while True:
-
     img = sensor.snapshot().lens_corr(1.8)
 
-    # draw grid + live detection (for IDE only)
     live_results = []
-
     for i, roi in enumerate(ROIS):
         color = classify_roi(img, roi)
         live_results.append(color)
@@ -90,27 +88,16 @@ while True:
         img.draw_rectangle(roi, color=COLOR_MAP.get(color, (255, 0, 0)))
         img.draw_string(x + 5, y + 5, color, color=(255, 255, 255), scale=2)
 
-
-    try:
-        history
-    except NameError:
-        history = []
-
     history.append(live_results)
-
-    if len(history) > 5:
+    if len(history) > HISTORY_SIZE:
         history.pop(0)
 
     results = []
-
     for i in range(len(ROIS)):
         votes = [h[i] for h in history]
         results.append(max(set(votes), key=votes.count))
 
-
     if uart.any():
         cmd = uart.read(1)
-
         if cmd == b'S':
             uart.write("C:" + ",".join(results) + "\n")
-
