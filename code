@@ -476,4 +476,91 @@ void loop() {
     lMotor.stop();
     rMotor.stop();
   }
+// Arduino Mega <-> OpenMV
+// Sends 'S' once, reads one line, parses 12 colors, prints to Serial Monitor.
+
+#define CAM Serial1   // Mega pins: TX1=18, RX1=19
+
+const int LINE_SIZE = 200;
+char cameraLine[LINE_SIZE];
+char block[12];       // block[0]..block[11] = Block 1..12
+
+void setup() {
+  Serial.begin(115200);   // Arduino Serial Monitor
+  CAM.begin(115200);      // UART to OpenMV
+  delay(1000);            // let OpenMV script start
 }
+
+void loop() {
+  static bool alreadyRequested = false;
+  if (!alreadyRequested) {
+    requestScan();
+    alreadyRequested = true;
+  }
+
+  if (readLineFromCam(cameraLine, LINE_SIZE)) {
+    Serial.print("OpenMV says: ");
+    Serial.println(cameraLine);
+
+    if (cameraLine[0] == 'C' && cameraLine[1] == ':') {
+      if (parseColors(cameraLine, block)) {
+        printBlocksToSerial();
+      } else {
+        Serial.println("Parse error: expected 12 colors");
+      }
+    } else {
+      Serial.println("Message ignored (not a C: color line)");
+    }
+  }
+}
+
+void requestScan() {
+  CAM.write('S');   // single-byte command
+}
+
+bool readLineFromCam(char *buffer, int bufferSize) {
+  static int position = 0;
+
+  while (CAM.available()) {
+    char c = CAM.read();
+
+    if (c == '\r') continue;
+
+    if (c == '\n') {
+      buffer[position] = '\0';
+      position = 0;
+      return true;
+    }
+
+    if (position < bufferSize - 1) {
+      buffer[position++] = c;
+    }
+  }
+
+  return false;
+}
+
+bool parseColors(char *line, char *colorArray) {
+  int colorIndex = 0;
+  int i = 2; // skip "C:"
+
+  while (line[i] != '\0' && colorIndex < 12) {
+    if (line[i] != ',') {
+      colorArray[colorIndex++] = line[i];
+    }
+    i++;
+  }
+
+  return (colorIndex == 12);
+}
+
+void printBlocksToSerial() {
+  Serial.println("Parsed block colors:");
+  for (int i = 0; i < 12; i++) {
+    Serial.print("Block ");
+    Serial.print(i + 1);
+    Serial.print(" = ");
+    Serial.println(block[i]);
+  }
+}
+
