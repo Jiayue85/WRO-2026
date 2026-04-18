@@ -1,4 +1,4 @@
-//v22,based on steve v13
+//v24,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -44,7 +44,7 @@ bool detect = true;  //when true pritn out value
 #define out 22
 
 
-const float TRACK_WIDTH = 239.0;                             //mm, distance from the center of the wheels
+const float TRACK_WIDTH = 250.0;                             //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0;                           // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
 int STEPS_PER_REV = 200;
@@ -121,8 +121,9 @@ void StepMode(int stepMode) {
 }
 
 //calculates the steps needed for the turn
-float stepsForTuring(float degree){
-  return (float) (((TRACK_WIDTH *3.1415926*(degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
+float stepsForTurning(float degree){
+  Serial.println((float) (((TRACK_WIDTH * 3.1415926 * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );)
+  return (float) (((TRACK_WIDTH * 3.1415926 * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
 }
 
 // Calculate steps for movements
@@ -224,6 +225,7 @@ void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 st
   lMotor.setMaxSpeed(speed);                                           //r steps per sec
   rMotor.setMaxSpeed(speed);
 
+
   lMotor.setAcceleration(accel);  //steps per sec
   rMotor.setAcceleration(accel);
 
@@ -235,15 +237,15 @@ void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 st
 //left wheel negative = forwards
   switch (turn) {
     case 0:
-      rSteps = steps;
-      lSteps = -steps;
-      break;
-    case 1:  //left
       rSteps = -steps;
       lSteps = -steps;
       break;
-    case -1:
+    case 1:  //left
       rSteps = steps;
+      lSteps = -steps;
+      break;
+    case -1:
+      rSteps = -steps;
       lSteps = steps;
       break;
   }
@@ -271,15 +273,15 @@ void targetSteps(long steps, int speed, int accel, int turn) {
 
   switch (turn) {
     case 0:
-      rSteps = steps;
-      lSteps = -steps;
-      break;
-    case 1:
       rSteps = -steps;
       lSteps = -steps;
       break;
-    case -1:
+    case 1:
       rSteps = steps;
+      lSteps = -steps;
+      break;
+    case -1:
+      rSteps = -steps;
       lSteps = steps;
       break;
   }
@@ -294,7 +296,7 @@ void turn(int DEGREE) {
   //float deg_ratio = (float)DEGREE / 360.0;
   // DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH * 3.1415926f * deg_ratio) / WHEEL_DIAMETER);
   int direction = (DEGREE < 0) ? 1 : -1;
-  targetSteps(stepsForTuring(DEGREE), 1000, 400, direction);
+  targetSteps(stepsForTurning(DEGREE), 1000, 400, direction);
   //return 1
 }
 /*void turn_90_Right (){
@@ -392,6 +394,14 @@ void loop() {
   if (run) {
 
     switch (currentTask) {
+      
+      case 0:
+        lMotor.stop();
+        rMotor.stop();
+        rMotor.enableOutputs();
+        lMotor.enableOutputs();
+        
+
       case 1:
         //Serial.println((String(millis())));
         dbug("case 1");
@@ -405,7 +415,7 @@ void loop() {
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
         
-        targetDistance(1600, 1000, 600, 0);
+        targetDistance(1000, 400, 100, 0);
 
         dbug("start");
 
@@ -439,11 +449,12 @@ void loop() {
         break;
       case 2:
         turn(180);
+
         while ((l_dl() != 0) || (r_dl() != 0)) {
-          if (l_dl() != 0) lMotor.run();
-          if (r_dl() != 0) rMotor.run();
+          lMotor.run();
+          rMotor.run();
         }
-        currentTask = 3;
+        currentTask = 0;
         break;
 
       case 3:
@@ -476,9 +487,12 @@ void loop() {
     lMotor.stop();
     rMotor.stop();
   }
+  lMotor.stop();
+  rMotor.stop();
+}
 // Arduino Mega <-> OpenMV
 // Sends 'S' once, reads one line, parses 12 colors, prints to Serial Monitor.
-
+/*
 #define CAM Serial1   // Mega pins: TX1=18, RX1=19
 
 const int LINE_SIZE = 200;
@@ -563,4 +577,4 @@ void printBlocksToSerial() {
     Serial.println(block[i]);
   }
 }
-
+*/
