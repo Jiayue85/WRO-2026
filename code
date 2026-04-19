@@ -1,4 +1,4 @@
-//v24,based on steve v13
+//v25,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -44,7 +44,7 @@ bool detect = true;  //when true pritn out value
 #define out 22
 
 
-const float TRACK_WIDTH = 250.0;                             //mm, distance from the center of the wheels
+const float TRACK_WIDTH = 242.0;                  //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0;                           // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
 int STEPS_PER_REV = 200;
@@ -122,8 +122,8 @@ void StepMode(int stepMode) {
 
 //calculates the steps needed for the turn
 float stepsForTurning(float degree){
-  Serial.println((float) (((TRACK_WIDTH * 3.1415926 * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );)
-  return (float) (((TRACK_WIDTH * 3.1415926 * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
+  Serial.println((float) (((TRACK_WIDTH * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV ));
+  return (float) (((TRACK_WIDTH  * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
 }
 
 // Calculate steps for movements
@@ -415,9 +415,9 @@ void loop() {
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
         
-        targetDistance(1000, 400, 100, 0);
+        targetDistance(150, 500, 100, 0);
 
-        dbug("start");
+
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
@@ -448,18 +448,18 @@ void loop() {
         Serial.println((String(millis())));
         break;
       case 2:
-        turn(180);
+        turn(-90);
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
         }
-        currentTask = 0;
+        currentTask = 3;
         break;
 
       case 3:
         Serial.println("case 3");
-        targetDistance(1600, 1000, 600, 0);
+        targetDistance(5000, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
