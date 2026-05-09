@@ -1,22 +1,13 @@
-//v25,based on steve v13
+//v26,based on steve v13
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
 // New functions to turn l  & r 180 & 90
 #include <AccelStepper.h>
-AccelStepper lMotor(1, 7, 6);  //left (driverboard,step,dir)
-const int lEnable = 4;
-AccelStepper rMotor(1, 11, 10);  //right
-const int rEnable = 9;
-//defines pins numbers
-//AccelStepper lMotor(1, 3, 2 ); //left (driverboard,step,dir)
-const int Lms1 = 33;
-const int Lms2 = 35;
-const int Lms3 = 37;
-//AccelStepper rMotor(1,11,10); //right
-const int Rms1 = 32;
-const int Rms2 = 34;
-const int Rms3 = 36;
+AccelStepper lMotor(1, 17, 16);  //left (driverboard,step,dir)
+const int lEnable = 48;
+AccelStepper rMotor(1, 54, 47);  //right
+const int rEnable = 55;
 
 
 const int grid_Motor = 8;
@@ -79,47 +70,6 @@ long r_dl() {
   return rMotor.distanceToGo();
 }
 
-void StepMode(int stepMode) {
-  switch(stepMode){
-    case 1:
-      STEPS_PER_REV = 200;  //both motors fullsteps
-      digitalWrite(Rms1, LOW);
-      digitalWrite(Rms2, LOW);
-      digitalWrite(Rms3, LOW);
-      digitalWrite(Lms1, LOW);
-      digitalWrite(Lms2, LOW);
-      digitalWrite(Lms3, LOW);
-      break;
-    case 2:  // Both motors half steps
-      STEPS_PER_REV = 400;
-      digitalWrite(Rms1, HIGH);
-      digitalWrite(Rms2, LOW);
-      digitalWrite(Rms3, LOW);
-      digitalWrite(Lms1, HIGH);
-      digitalWrite(Lms2, LOW);
-      digitalWrite(Lms3, LOW);
-      break;
-    case 3:
-      STEPS_PER_REV = 800;  //both motors eigth steps
-      digitalWrite(Rms1, HIGH);
-      digitalWrite(Rms2, HIGH);
-      digitalWrite(Rms3, LOW);
-      digitalWrite(Lms1, HIGH);
-      digitalWrite(Lms2, HIGH);
-      digitalWrite(Lms3, LOW);
-      break;
-    case 4:
-      STEPS_PER_REV = 1600;  //both motors sixteenth steps
-      digitalWrite(Rms1, HIGH);
-      digitalWrite(Rms2, HIGH);
-      digitalWrite(Rms3, HIGH);
-      digitalWrite(Lms1, HIGH);
-      digitalWrite(Lms2, HIGH);
-      digitalWrite(Lms3, HIGH);
-      break;
-  }
-}
-
 //calculates the steps needed for the turn
 float stepsForTurning(float degree){
   Serial.println((float) (((TRACK_WIDTH * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV ));
@@ -132,93 +82,19 @@ int stepsForDistance(float distance) {//mm
 }
 
 
-/*String dbg(msg){
+// String dbg(msg){
 
-  if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
-    lastPrintTime = millis();  
-    Serial.println(msg);
+//   if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
+//     lastPrintTime = millis();  
+//     Serial.println(msg);
 
-  }
-}
-
-*/
-void current_frequency() {
-  digitalWrite(S2, HIGH);  //clear, no filter
-  digitalWrite(S3, LOW);
-  digitalWrite(S0, HIGH);  // Frequency scaling to 20%
-  digitalWrite(S1, LOW);
-
-
-  frequency = pulseIn(out, HIGH);
-
-
-  Serial.println("Freq: ");
-  Serial.println(frequency);
-}
-
-void detect_black_line() {
-  if (!detect) return;
-
-  digitalWrite(S2, HIGH);  //clear, no filter
-  digitalWrite(S3, LOW);
-  digitalWrite(S0, HIGH);  // Frequency scaling to 20%
-  digitalWrite(S1, LOW);
-  frequency = pulseIn(out, HIGH);
-  black_line = (frequency >= black_value);
+//   }
+// }
 
 
 
-  /*if(frequency > black_value){
-    dbug("Black Line Detected");
-    // Add motor control code here
-  } else {
-    dbug("White Surface");
-  }*/
 
 
-  if (!black_line) {
-    last_off_value = frequency;
-    if (!off_value_printed) {
-      Serial.print("last off line value:");
-      Serial.println(last_off_value);
-      off_value_printed = true;
-    }
-  }
-
-
-  if (black_line && !last_state) {  // Print black value once when first hitting the black line
-    Serial.println("black line");
-    Serial.print("frequency: ");
-    Serial.println(frequency);
-    off_value_printed = false;
-  }
-
-
-
-  last_state = black_line;
-}
-
-void move_until_balck_line(int mode) {
-  StepMode(mode);
-  detect_black_line();
-
-
-  if (!black_line) {
-    if (r_dl() == 0) rMotor.move(10000);
-
-    if (l_dl() == 0) lMotor.move(-10000);
-    rMotor.run();
-    lMotor.run();
-
-  } else {
-
-    rMotor.stop();
-    lMotor.stop();
-
-
-    Serial.println("stop");
-  }
-}
 
 // ################################################### targetDistance
 void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 straight, 1 rt, -1 lt
@@ -237,16 +113,16 @@ void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 st
 //left wheel negative = forwards
   switch (turn) {
     case 0:
-      rSteps = -steps;
-      lSteps = -steps;
+      rSteps = steps;
+      lSteps = steps;
       break;
     case 1:  //left
-      rSteps = steps;
-      lSteps = -steps;
-      break;
-    case -1:
       rSteps = -steps;
       lSteps = steps;
+      break;
+    case -1:
+      rSteps = steps;
+      lSteps = -steps;
       break;
   }
   
@@ -270,22 +146,21 @@ void targetSteps(long steps, int speed, int accel, int turn) {
 
   long rSteps = 0;
   long lSteps = 0;
-
   switch (turn) {
     case 0:
-      rSteps = -steps;
-      lSteps = -steps;
-      break;
-    case 1:
       rSteps = steps;
-      lSteps = -steps;
+      lSteps = steps;
       break;
-    case -1:
+    case 1:  //left
       rSteps = -steps;
       lSteps = steps;
       break;
+    case -1:
+      rSteps = steps;
+      lSteps = -steps;
+      break;
   }
-
+ 
   rMotor.move(rSteps);
   lMotor.move(lSteps);
 }
@@ -299,19 +174,7 @@ void turn(int DEGREE) {
   targetSteps(stepsForTurning(DEGREE), 1000, 400, direction);
   //return 1
 }
-/*void turn_90_Right (){
-  targetDistance(360, 800, -1);     
-  } 
-void turn_90_Left (){
-    targetDistance(360, 800, 1);      
-  }
-void turn_180_Left (){
-   targetDistance(720, 800, 1); 
-  }
-void turn_180_Right (){
-   targetDistance(720, 800, -1);      
-  }
-*/
+
 void Lower_grid() {
   digitalWrite(grid_Motor, HIGH);
   // OLD (too short pulse):
@@ -348,18 +211,7 @@ void setup() {
   lMotor.setAcceleration(600);  //steps per sec
   rMotor.setAcceleration(600);
 
-  pinMode(Lms1, OUTPUT);
-  pinMode(Lms2, OUTPUT);
-  pinMode(Lms3, OUTPUT);
-  pinMode(Rms1, OUTPUT);
-  pinMode(Rms2, OUTPUT);
-  pinMode(Rms3, OUTPUT);
 
-  pinMode(S0, OUTPUT);
-  pinMode(S1, OUTPUT);
-  pinMode(S2, OUTPUT);
-  pinMode(S3, OUTPUT);
-  pinMode(out, INPUT);
 
   dbug("setup");
 
@@ -369,10 +221,7 @@ void setup() {
   lMotor.setCurrentPosition(0);
   rMotor.setCurrentPosition(0);
 
-  // targetDistance(1, 100);
-  // rMotor.run();
-  // lMotor.run();
-  // delay(1000);
+
   currentTask = 1;
   digitalWrite(lEnable, LOW);
   digitalWrite(rEnable, LOW);
@@ -410,7 +259,7 @@ void loop() {
         // lMotor.disableOutputs();
         // rMotor.enableOutputs();
         // lMotor.enableOutputs();
-        StepMode(1);
+
 
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
@@ -459,7 +308,7 @@ void loop() {
 
       case 3:
         Serial.println("case 3");
-        targetDistance(5000, 500, 100, 0);
+        targetDistance(500, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -490,91 +339,3 @@ void loop() {
   lMotor.stop();
   rMotor.stop();
 }
-// Arduino Mega <-> OpenMV
-// Sends 'S' once, reads one line, parses 12 colors, prints to Serial Monitor.
-/*
-#define CAM Serial1   // Mega pins: TX1=18, RX1=19
-
-const int LINE_SIZE = 200;
-char cameraLine[LINE_SIZE];
-char block[12];       // block[0]..block[11] = Block 1..12
-
-void setup() {
-  Serial.begin(115200);   // Arduino Serial Monitor
-  CAM.begin(115200);      // UART to OpenMV
-  delay(1000);            // let OpenMV script start
-}
-
-void loop() {
-  static bool alreadyRequested = false;
-  if (!alreadyRequested) {
-    requestScan();
-    alreadyRequested = true;
-  }
-
-  if (readLineFromCam(cameraLine, LINE_SIZE)) {
-    Serial.print("OpenMV says: ");
-    Serial.println(cameraLine);
-
-    if (cameraLine[0] == 'C' && cameraLine[1] == ':') {
-      if (parseColors(cameraLine, block)) {
-        printBlocksToSerial();
-      } else {
-        Serial.println("Parse error: expected 12 colors");
-      }
-    } else {
-      Serial.println("Message ignored (not a C: color line)");
-    }
-  }
-}
-
-void requestScan() {
-  CAM.write('S');   // single-byte command
-}
-
-bool readLineFromCam(char *buffer, int bufferSize) {
-  static int position = 0;
-
-  while (CAM.available()) {
-    char c = CAM.read();
-
-    if (c == '\r') continue;
-
-    if (c == '\n') {
-      buffer[position] = '\0';
-      position = 0;
-      return true;
-    }
-
-    if (position < bufferSize - 1) {
-      buffer[position++] = c;
-    }
-  }
-
-  return false;
-}
-
-bool parseColors(char *line, char *colorArray) {
-  int colorIndex = 0;
-  int i = 2; // skip "C:"
-
-  while (line[i] != '\0' && colorIndex < 12) {
-    if (line[i] != ',') {
-      colorArray[colorIndex++] = line[i];
-    }
-    i++;
-  }
-
-  return (colorIndex == 12);
-}
-
-void printBlocksToSerial() {
-  Serial.println("Parsed block colors:");
-  for (int i = 0; i < 12; i++) {
-    Serial.print("Block ");
-    Serial.print(i + 1);
-    Serial.print(" = ");
-    Serial.println(block[i]);
-  }
-}
-*/
