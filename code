@@ -1,4 +1,4 @@
-//v27,based on steve v13
+//v28,based on steve v13 10.5.26
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -34,7 +34,6 @@ const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
 int STEPS_PER_REV = 200;
 float degree = 1.0;
 
-// float DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH *3.1415926*(DEGREE/360))/WHEEL_DIAMETER);
 
 
 
@@ -161,7 +160,7 @@ void turn(int DEGREE) {
   //float deg_ratio = (float)DEGREE / 360.0;
   // DEGREES_TURN = STEPS_PER_REV * ((TRACK_WIDTH * 3.1415926f * deg_ratio) / WHEEL_DIAMETER);
   int direction = (DEGREE < 0) ? 1 : -1;
-  targetSteps(stepsForTurning(DEGREE), 1000, 400, direction);
+  targetSteps(stepsForTurning(DEGREE), 500, 100, direction);
   //return 1
 }
 
@@ -198,7 +197,7 @@ void setup() {
   rMotor.setEnablePin(rEnable);
 
 
-  delay(500);
+  delay(1500);
   lMotor.setMaxSpeed(1100);  //r steps per sec
   rMotor.setMaxSpeed(1100);
 
@@ -298,7 +297,7 @@ void loop() {
 
       case 3:
         Serial.println("case 3");
-        targetDistance(20000, 500, 100, 0);
+        targetDistance(70, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -306,8 +305,9 @@ void loop() {
         currentTask = 4;
         break;
       case 4:
+        Serial.println("case 4");
         turn(30);
-        lift_square(180);
+        lift_square(90);
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
@@ -318,7 +318,11 @@ void loop() {
 
 
       case 5:
-
+       targetDistance(300,500,100,0);
+       while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
 
         // rMotor.disableOutputs();        
         // lMotor.disableOutputs(); 
@@ -327,8 +331,24 @@ void loop() {
 
         currentTask =6;
         break;
-        
-    }
+      
+      
+      case 6:
+        Serial.println("case 6");
+
+        lift_square(-90);
+        currentTask =7;
+        break;      
+
+      case 7:
+        targetDistance(-200,500,100,0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask =8;
+        break;
+      } 
 
 
   } else {
