@@ -1,4 +1,4 @@
-//v1,open_side
+//v2,open_side
 
 
 // New functions to turn l  & r 180 & 90
@@ -20,8 +20,7 @@ const int buttonPin = 37;
 int DBG = 1;  //1=on
 String msg = "";
 unsigned long lastPrintTime = 0;
-
-int currentTask = 0;
+int currentTask = 1;
 bool run = true;
 bool lastButtonState = LOW;
 
@@ -31,7 +30,7 @@ bool waiting = false;
 
 
 
-const float TRACK_WIDTH = 137.0;                  //mm, distance from the center of the wheels
+const float TRACK_WIDTH = 138.0;                  //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0;                           // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
 int STEPS_PER_REV = 200;
@@ -79,7 +78,7 @@ float stepsForTurning(float degree){
 
 // Calculate steps for movements
 int stepsForDistance(float distance) {//mm
-  return (int)((distance/ (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
+  return (float)((distance/ (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
 }
 
 
@@ -244,7 +243,7 @@ void loop() {
         lMotor.enableOutputs();
         
       case 1:
-        turn(94);
+        turn(93);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -292,7 +291,7 @@ void loop() {
 
       case 4:
         Serial.println("case 3");
-        targetDistance(-120, 500, 100, 0);
+        targetDistance(-95, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -328,7 +327,7 @@ void loop() {
         break;
       
       
-      case 7: //lowering onto the white
+      case 7: //////////////////////lowering onto the white
         Serial.println("case 6");
         back_servo(90);
         currentTask = 8;
@@ -345,6 +344,31 @@ void loop() {
           rMotor.run();
         }
         currentTask = 10;
+        break;
+      case 10:
+        targetDistance(300,500,100,0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 11;
+        break;
+      case 11:
+        turn(180);
+         while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 12;
+        break;
+
+      case 12:
+        targetDistance(-350,500,100,0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 13;
         break;
       } 
 
