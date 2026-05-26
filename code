@@ -1,4 +1,4 @@
-//v32,based on steve v13 10.5.26
+//v33,based on steve v13 10.5.26
 
 
 //v13 - Add enableOutputs(), enablePin(), rationalise setSpeed, move() and run(). add abs(l_dl()) to handle going backwards.
@@ -261,7 +261,7 @@ void loop() {
         lMotor.enableOutputs();
         
       case 1:
-        turn(97);
+        turn(96);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -288,19 +288,7 @@ void loop() {
           rMotor.run();
         }
         
-        // while ((l_dl() != 0) || (r_dl() != 0)) {
-
-        //   // OLD (always true):
-        //   // if (abs(l_dl())>=0)lMotor.run();
-        //   // if (abs(r_dl())>=0)rMotor.run();
-        //   if (l_dl() != 0) lMotor.run();
-        //   if (r_dl() != 0) rMotor.run();
-
-        //   // String str1="!";
-        //   //str1= String(r_dl())+" "+String(rMotor.speed())+" "+String(millis()); // maxSpeed is ~1400
-        //   //dbug(str1);
-        // }
-
+      
 
         // lMotor.enableOutputs();
         // rMotor.enableOutputs();
@@ -321,7 +309,7 @@ void loop() {
 
       case 4:
         Serial.println("case 3");
-        targetDistance(-180, 500, 100, 0);
+        targetDistance(-170, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -342,7 +330,7 @@ void loop() {
 
 
       case 6:
-       targetDistance(-270,500,100,0);
+       targetDistance(-210,500,100,0);
        while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -414,6 +402,7 @@ void loop() {
         break;
 
       case 15:
+        delay(500);
         targetDistance(420,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
@@ -441,4 +430,3 @@ void loop() {
   }
 
 }
-
