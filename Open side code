@@ -1,4 +1,4 @@
-//v5,open_side
+//v6,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -294,7 +294,7 @@ void loop() {
 
       case 5:
         Serial.println("case 3");
-        targetDistance(-200, 500, 100, 0);
+        targetDistance(-210, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -315,7 +315,7 @@ void loop() {
 
 
       case 7://going to blue
-       targetDistance(-265,500,100,0);
+       targetDistance(-275,500,100,0);
        while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -357,7 +357,7 @@ void loop() {
         currentTask = 12;
         break;
       case 12:
-        turn(-40);
+        turn(-33);
          while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -366,7 +366,7 @@ void loop() {
         break;
 
       case 13:
-        targetDistance(-350,500,100,0);
+        targetDistance(-375,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -374,7 +374,7 @@ void loop() {
         currentTask = 14;
         break;
       case 14:
-        turn(-91);
+        turn(-89);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
