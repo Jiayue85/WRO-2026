@@ -1,4 +1,4 @@
-//v4,open_side
+//v5,open_side
 
 
 // New functions to turn l  & r 180 & 90
@@ -246,7 +246,7 @@ void loop() {
         break;
         
       case 2:
-        turn(92);
+        turn(91);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -266,7 +266,7 @@ void loop() {
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
        back_servo(140);
-       targetDistance(-1820,500,100,0);
+       targetDistance(-1620,500,100,0);
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
@@ -283,7 +283,7 @@ void loop() {
         Serial.println((String(millis())));
         break;
       case 4:
-        turn(-30);//turing to apporach white
+        turn(90);//turing at intersection of blue and white
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
@@ -294,7 +294,7 @@ void loop() {
 
       case 5:
         Serial.println("case 3");
-        targetDistance(-72, 500, 100, 0);
+        targetDistance(-200, 500, 100, 0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           if (l_dl() != 0) lMotor.run();
           if (r_dl() != 0) rMotor.run();
@@ -303,7 +303,7 @@ void loop() {
         break;
       case 6:
         Serial.println("case 4");
-        turn(29);
+        turn(-91);
 
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
@@ -314,12 +314,12 @@ void loop() {
         break;
 
 
-      case 7:
-      //  targetDistance(-250,500,100,0);
-      //  while ((l_dl() != 0) || (r_dl() != 0)) {
-      //     lMotor.run();
-      //     rMotor.run();
-      //   }
+      case 7://going to blue
+       targetDistance(-265,500,100,0);
+       while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
 
         // rMotor.disableOutputs();        
         // lMotor.disableOutputs(); 
@@ -330,7 +330,7 @@ void loop() {
         break;
       
       
-      case 8: //////////////////////lowering onto the white
+      case 8: //////////////////////lowering onto the blue
         Serial.println("case 6");
         back_servo(90);
         currentTask = 9;
@@ -340,8 +340,8 @@ void loop() {
         if(pauseDone(5000)){
           currentTask = 10;
         }
-      case 10://scooping up white
-        turn(-70);
+      case 10://scooping up blue
+        turn(-60);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -349,7 +349,7 @@ void loop() {
         currentTask = 11;
         break;
       case 11:
-        targetDistance(400,500,100,0);
+        targetDistance(300,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -357,7 +357,7 @@ void loop() {
         currentTask = 12;
         break;
       case 12:
-        turn(-195);
+        turn(-40);
          while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -366,12 +366,28 @@ void loop() {
         break;
 
       case 13:
-        targetDistance(-400,500,100,0);
+        targetDistance(-350,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
         }
         currentTask = 14;
+        break;
+      case 14:
+        turn(-91);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 15;
+        break;
+      case 15:
+        targetDistance(-1400,500,100,0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 16;
         break;
       } 
 
