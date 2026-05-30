@@ -1,4 +1,4 @@
-//v7,open_side blue
+//v8,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -246,7 +246,7 @@ void loop() {
         break;
         
       case 2:
-        turn(91);
+        turn(90);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -303,7 +303,7 @@ void loop() {
         break;
       case 6:
         Serial.println("case 4");
-        turn(-91);
+        turn(-90);
 
 
         while ((l_dl() != 0) || (r_dl() != 0)) {
@@ -366,7 +366,7 @@ void loop() {
         break;
 
       case 13:
-        targetDistance(-474,500,100,0);
+        targetDistance(-462,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -398,7 +398,7 @@ void loop() {
         currentTask = 17;
         break;
       case 17:
-        targetDistance(-400,500,100,0);
+        targetDistance(-420,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -436,7 +436,7 @@ void loop() {
         currentTask = 22;
         break;
       case 22:
-        targetDistance(-100,500,100,0);
+        targetDistance(-110,500,100,0);//////pushing blue sticks
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -466,7 +466,7 @@ void loop() {
         currentTask = 26;
         break; 
       case 26:
-        targetDistance(560,500,100,0);
+        targetDistance(530,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -483,7 +483,7 @@ void loop() {
         currentTask = 28;
         break;
       case 28:
-        targetDistance(-70,500,100,0);
+        targetDistance(-170,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -496,7 +496,7 @@ void loop() {
         currentTask = 30;
         break;
       case 30:
-        targetDistance(220,500,100,0);
+        targetDistance(350,500,100,0);
         while ((l_dl() != 0) || (r_dl() != 0)) {
           lMotor.run();
           rMotor.run();
@@ -504,7 +504,21 @@ void loop() {
         currentTask = 31;
         break;
 
-
+      case 31:
+      targetDistance(-100,500,100,0);
+        while ((l_dl() != 0) || (r_dl() != 0)) {
+          lMotor.run();
+          rMotor.run();
+        }
+        currentTask = 32;
+        break;
+      case 32:
+        back_servo(140);
+        delay(100);
+        currentTask = 33;
+        break;
+      case 33:
+        turn();
       } 
 
 
