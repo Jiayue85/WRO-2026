@@ -1,4 +1,4 @@
-//v9,open_side blue
+//v10,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -267,7 +267,7 @@ void loop() {
     switch (currentTask) {
       
       case 1:
-        targetDistance(20,500,100,0);
+        targetDistance(20,800,100,0);
         finish_task(2);
         
         break;
@@ -289,7 +289,7 @@ void loop() {
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
        back_servo(140);
-       targetDistance(-1620,500,100,0);
+       targetDistance(-1620,800,100,0);
 
         finish_task(4);
         
@@ -310,7 +310,7 @@ void loop() {
 
       case 5:
         Serial.println("case 3");
-        targetDistance(-220, 500, 100, 0);
+        targetDistance(-225, 800, 100, 0);
         finish_task(6);
         break;
       case 6:
@@ -323,7 +323,7 @@ void loop() {
 
 
       case 7://going to blue
-       targetDistance(-273,500,100,0);
+       targetDistance(-268,500,100,0);
        finish_task(8);
         break;
       
@@ -346,7 +346,7 @@ void loop() {
         finish_task(12);
         break;
       case 12:
-        turn(-30);
+        turn(-34);
         finish_task(13);
         break;
 
@@ -389,7 +389,7 @@ void loop() {
         currentTask = 22;
         break;
       case 22:
-        targetDistance(-110,500,100,0);//////pushing blue sticks
+        targetDistance(-120,500,100,0);//////pushing blue sticks
         finish_task(23);
         break;
 
@@ -403,11 +403,11 @@ void loop() {
         finish_task(25);
         break; 
       case 25:
-        turn(91);
+        turn(90);
         finish_task(26);
         break; 
       case 26:
-        targetDistance(530,500,100,0);
+        targetDistance(510,600,150,0);
         finish_task(27);
         break;
 
@@ -419,7 +419,7 @@ void loop() {
         targetDistance(-170,500,100,0);
         finish_task(29);
         break;
-      case 29://////lower on to cement thing
+      case 29://////////lower on to cement thing
         back_servo(90);
         delay(200);
         currentTask = 30;
@@ -430,16 +430,52 @@ void loop() {
         break;
 
       case 31:
+       back_servo(140);
+        delay(10);
+        currentTask = 33;
+        break; 
+      case 32:
+        
         targetDistance(-100,500,100,0);
         finish_task(32);
         break;
-      case 32:
-        back_servo(140);
-        delay(100);
-        currentTask = 33;
-        break;
       case 33:
-        currentTask = 34;
+        turn(90);
+        finish_task(34);
+        break;
+      case 34:
+        targetDistance(-130,500,100,0);
+        finish_task(35);
+      case 35:
+        turn(-91);
+        finish_task(36);
+        break;
+      case 36:
+        targetDistance(-1300,600,130,0);///////////////going along the side heaidng to green
+        finish_task(37);
+        break;
+      case 37:
+        turn(90);
+        finish_task(38);
+        break;
+        
+      case 38:
+        targetDistance(-430,700,130,0);
+        finish_task(39);
+        break;
+
+      case 39:
+        turn(-90);
+        finish_task(40);
+        break;
+      case 40:
+        targetDistance(-420,600,120,0);
+        finish_task(41);
+        break;
+      case 41:
+        back_servo(90);
+        currentTask = 42;
+        delay(30);
         break;
       } 
 
