@@ -1,4 +1,4 @@
-//v10,open_side blue
+//v11,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -176,6 +176,12 @@ void turn(int DEGREE) {// postive = left negative = right
   //return 1
 }
 
+void carteraige_servo(int angle){// servo write 90 is having the grid flat on the floor
+  if (millis() - last_move > 50){
+    last_move = millis();
+     servo.write(angle);
+  }
+}
 
 
 void back_servo(int angle){// servo write 90 is having the grid flat on the floor
@@ -223,7 +229,7 @@ void check_button() {
 
   if (currentButtonState == LOW && lastButtonState == HIGH) {
     run = !run;
-    delay(50); // debounce
+    delay(300); // debounce
 
     if (!run) {
       currentTask = 1;
@@ -346,12 +352,12 @@ void loop() {
         finish_task(12);
         break;
       case 12:
-        turn(-34);
+        turn(-31);
         finish_task(13);
         break;
 
       case 13:
-        targetDistance(-462,500,100,0);
+        targetDistance(-468,500,100,0);
         finish_task(14);
         break;
       case 14:
@@ -407,7 +413,7 @@ void loop() {
         finish_task(26);
         break; 
       case 26:
-        targetDistance(510,600,150,0);
+        targetDistance(550,600,150,0);
         finish_task(27);
         break;
 
@@ -416,7 +422,7 @@ void loop() {
         finish_task(28);
         break;
       case 28:
-        targetDistance(-170,500,100,0);
+        targetDistance(-175,500,100,0);
         finish_task(29);
         break;
       case 29://////////lower on to cement thing
@@ -425,12 +431,12 @@ void loop() {
         currentTask = 30;
         break;
       case 30:
-        targetDistance(350,500,100,0);
+        targetDistance(355,500,100,0);
         finish_task(31);
         break;
 
       case 31:
-       back_servo(140);
+       back_servo(140);////lift up
         delay(10);
         currentTask = 33;
         break; 
@@ -444,7 +450,7 @@ void loop() {
         finish_task(34);
         break;
       case 34:
-        targetDistance(-130,500,100,0);
+        targetDistance(-150,500,100,0);
         finish_task(35);
       case 35:
         turn(-91);
@@ -460,22 +466,86 @@ void loop() {
         break;
         
       case 38:
-        targetDistance(-430,700,130,0);
+        targetDistance(-520,700,130,0);
         finish_task(39);
         break;
 
       case 39:
-        turn(-90);
+        turn(-87);
         finish_task(40);
         break;
       case 40:
-        targetDistance(-420,600,120,0);
+        targetDistance(-413,600,120,0);///going to green
         finish_task(41);
         break;
       case 41:
         back_servo(90);
         currentTask = 42;
+        delay(50);
+        break;
+      case 42:
+        turn(-178);
+        finish_task(43);
+        break;
+      case 43:
+        targetDistance(-500,600,100,0);
+        finish_task(44);
+        break;
+      case 44:
+        back_servo(140);
+        targetDistance(170,600,100,0);
+        finish_task(45);
+        break;
+      case 45:
+        back_servo(90);///////pushing green
         delay(30);
+        targetDistance(-118,600,100,0);
+        finish_task(46);
+        break;
+      case 46:
+      
+        targetDistance(250,600,100,0);
+        finish_task(47);
+        break;
+
+      case 47:
+        back_servo(140);
+        turn(-90);
+        finish_task(48);
+        break;
+      case 48:
+        targetDistance(-180,600,100,0);
+        finish_task(49);
+        break;
+      case 49:
+        turn(-90);
+        finish_task(50);
+        break;
+      case 50:
+        targetDistance(-236,600,150,0);///////going yellow
+        finish_task(51);
+        
+        break;
+      case 51:
+        back_servo(90);
+        delay(50);
+        currentTask = 52;
+        break;
+      case 52:
+        turn(-90);
+        finish_task(53);
+        break;
+      case 53:
+        targetDistance(-800,650,150,0);
+        finish_task(54);
+        break;
+      case 54:
+        turn(-90);
+        finsih_task(55);
+        break;
+      case 55:
+        targetDistance(-800,600,150,0);
+        finish_task(56);
         break;
       } 
 
