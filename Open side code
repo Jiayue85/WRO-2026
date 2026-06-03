@@ -295,7 +295,7 @@ void loop() {
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
        back_servo(140);
-       targetDistance(-1620,800,100,0);
+       targetDistance(-1886,800,100,0);
 
         finish_task(4);
         
@@ -328,8 +328,8 @@ void loop() {
         break;
 
 
-      case 7://going to blue
-       targetDistance(-268,500,100,0);
+      case 7://///////going to blue
+      //  targetDistance(-266,700,150,0);
        finish_task(8);
         break;
       
@@ -348,7 +348,7 @@ void loop() {
         finish_task(11);
         break;
       case 11:
-        targetDistance(300,500,100,0);
+        targetDistance(300,700,150,0);
         finish_task(12);
         break;
       case 12:
@@ -357,7 +357,7 @@ void loop() {
         break;
 
       case 13:
-        targetDistance(-468,500,100,0);
+        targetDistance(-468,700,150,0);
         finish_task(14);
         break;
       case 14:
@@ -365,7 +365,7 @@ void loop() {
         finish_task(15);
         break;
       case 15:
-        targetDistance(-1300,500,100,0);///////////////going along the parts
+        targetDistance(-1300,700,170,0);///////////////going along the parts
         finish_task(16);
         break;
       case 16:
@@ -373,7 +373,7 @@ void loop() {
         finish_task(17);
         break;
       case 17:
-        targetDistance(-420,500,100,0);
+        targetDistance(-420,700,150,0);
         finish_task(18);
         break;
       case 18:
@@ -381,12 +381,12 @@ void loop() {
         finish_task(19);
         break;
       case 19://going blue placing
-        targetDistance(-100,500,100,0);
+        targetDistance(-100,500,150,0);
         finish_task(20);
         break; 
       case 20:
         back_servo(140);
-        targetDistance(170,500,100,0);
+        targetDistance(170,700,150,0);
         finish_task(21);
         break;
       case 21:
@@ -395,7 +395,7 @@ void loop() {
         currentTask = 22;
         break;
       case 22:
-        targetDistance(-120,500,100,0);//////pushing blue sticks
+        targetDistance(-124,500,100,0);//////pushing blue sticks
         finish_task(23);
         break;
 
@@ -405,7 +405,7 @@ void loop() {
         currentTask = 24;
         break;
       case 24://////leaving blue
-        targetDistance(150,500,100,0);
+        targetDistance(150,700,120,0);
         finish_task(25);
         break; 
       case 25:
@@ -422,7 +422,7 @@ void loop() {
         finish_task(28);
         break;
       case 28:
-        targetDistance(-175,500,100,0);
+        targetDistance(-175,600,120,0);
         finish_task(29);
         break;
       case 29://////////lower on to cement thing
@@ -431,7 +431,7 @@ void loop() {
         currentTask = 30;
         break;
       case 30:
-        targetDistance(355,500,100,0);
+        targetDistance(355,600,160,0);
         finish_task(31);
         break;
 
@@ -442,7 +442,7 @@ void loop() {
         break; 
       case 32:
         
-        targetDistance(-100,500,100,0);
+        // targetDistance(-100,500,100,0);
         finish_task(32);
         break;
       case 33:
@@ -453,11 +453,11 @@ void loop() {
         targetDistance(-150,500,100,0);
         finish_task(35);
       case 35:
-        turn(-91);
+        turn(-90);
         finish_task(36);
         break;
       case 36:
-        targetDistance(-1300,600,130,0);///////////////going along the side heaidng to green
+        targetDistance(-1300,700,170,0);///////////////going along the side heaidng to green
         finish_task(37);
         break;
       case 37:
@@ -466,7 +466,7 @@ void loop() {
         break;
         
       case 38:
-        targetDistance(-520,700,130,0);
+        targetDistance(-480,700,160,0);
         finish_task(39);
         break;
 
@@ -484,7 +484,7 @@ void loop() {
         delay(50);
         break;
       case 42:
-        turn(-178);
+        turn(-180);
         finish_task(43);
         break;
       case 43:
@@ -499,12 +499,12 @@ void loop() {
       case 45:
         back_servo(90);///////pushing green
         delay(30);
-        targetDistance(-118,600,100,0);
+        targetDistance(-114,600,100,0);
         finish_task(46);
         break;
       case 46:
       
-        targetDistance(250,600,100,0);
+        targetDistance(465,650,100,0);
         finish_task(47);
         break;
 
@@ -514,7 +514,7 @@ void loop() {
         finish_task(48);
         break;
       case 48:
-        targetDistance(-180,600,100,0);
+        targetDistance(-212,600,100,0);
         finish_task(49);
         break;
       case 49:
@@ -522,7 +522,7 @@ void loop() {
         finish_task(50);
         break;
       case 50:
-        targetDistance(-236,600,150,0);///////going yellow
+        // targetDistance(-221,650,150,0);///////going yellow
         finish_task(51);
         
         break;
@@ -536,16 +536,58 @@ void loop() {
         finish_task(53);
         break;
       case 53:
-        targetDistance(-800,650,150,0);
+        targetDistance(-715,650,150,0);//////along stiucks
         finish_task(54);
         break;
       case 54:
-        turn(-90);
-        finsih_task(55);
+        turn(-91);
+        finish_task(55);
         break;
       case 55:
-        targetDistance(-800,600,150,0);
+        targetDistance(-900,600,150,0);
         finish_task(56);
+        break;
+      case 56:
+        turn(-90);
+        finish_task(57);
+        break;
+      case 57:
+       targetDistance(-110,600,150,0);////////push yellow
+       finish_task(58);
+       break;
+      case 58:
+
+        finish_task(59);
+        break ;
+      case 59:
+        back_servo(140);
+        targetDistance(190,600,150,0);
+        finish_task(60);
+        break;
+      case 60:
+        turn(180);////////turning. to face bowl
+        finish_task(61);
+        break ;
+      case 61:
+
+        finish_task(62);
+        break ;
+      case 62:
+        back_servo(90);
+        finish_task(63);
+        break;
+      case 63:
+        turn(-90);
+        finish_task(64);
+        break;
+      case 65:
+        targetDistance(350,650,150,0);
+        finish_task(66);
+        break;
+      case 66:
+
+        turn(-90);
+        finish_task(67);
         break;
       } 
 
