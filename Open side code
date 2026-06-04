@@ -1,4 +1,4 @@
-//v11,open_side blue
+//v14,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -273,7 +273,7 @@ void loop() {
     switch (currentTask) {
       
       case 1:
-        targetDistance(20,800,100,0);
+        targetDistance(35,700,100,0);
         finish_task(2);
         
         break;
@@ -294,10 +294,10 @@ void loop() {
 
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
-       back_servo(140);
-       targetDistance(-1886,800,100,0);
+       back_servo(90);
+       targetDistance(-1000,700,100,0);////////going to bowl
 
-        finish_task(4);
+       finish_task(4);
         
       
 
@@ -309,14 +309,14 @@ void loop() {
         Serial.println((String(millis())));
         break;
       case 4:
-        turn(90);//turing at intersection of blue and white
+        turn(-180);////////catching onto the bowl
 
         finish_task(5);
         break;
 
       case 5:
         Serial.println("case 3");
-        targetDistance(-225, 800, 100, 0);
+        targetDistance(550, 700, 100, 0);
         finish_task(6);
         break;
       case 6:
@@ -328,267 +328,278 @@ void loop() {
         break;
 
 
-      case 7://///////going to blue
-      //  targetDistance(-266,700,150,0);
+      case 7://///////pushing the bowl in the parking lot to align with blue place
+       targetDistance(-213,700,100,0);
        finish_task(8);
         break;
-      
-      
-      case 8: //////////////////////lowering onto the blue
-        Serial.println("case 6");
-        back_servo(90);
-        currentTask = 9;
-        break;      
-      case 9:
-        delay(500);
-        currentTask = 10;
+      case 8:
+        turn(30);
+        finish_task(9);
         break;
-      case 10://scooping up blue
-        turn(-60);
+      case 9: 
+        // targetDistance(20,700,100,0);
+        Serial.println("case 6");
+        back_servo(150);
+       delay(100);
+        currentTask = 10;
+        break;      
+      case 10:
+        turn(-120);
         finish_task(11);
+
         break;
       case 11:
-        targetDistance(300,700,150,0);
+        targetDistance(-334,700,100,0);//////going to blue
         finish_task(12);
         break;
       case 12:
-        turn(-31);
+        back_servo(90);
+        delay(100);
         finish_task(13);
         break;
-
       case 13:
-        targetDistance(-468,700,150,0);
-        finish_task(14);
+        turn(-60);
+        finish_task(14); 
         break;
       case 14:
-        turn(-90);
+        targetDistance(305,700,100,0);
         finish_task(15);
         break;
       case 15:
-        targetDistance(-1300,700,170,0);///////////////going along the parts
+        turn(-30);
+        
         finish_task(16);
         break;
       case 16:
-        turn(-91);
-        finish_task(17);
+        currentTask = 17;
         break;
       case 17:
-        targetDistance(-420,700,150,0);
+        targetDistance(-464,700,100,0);
         finish_task(18);
         break;
       case 18:
-        turn(-91);
+        turn(-90);
         finish_task(19);
         break;
-      case 19://going blue placing
-        targetDistance(-100,500,150,0);
+      case 19:
+        targetDistance(-1300,700,100,0);///////////////going along the parts
         finish_task(20);
-        break; 
+        break;
       case 20:
-        back_servo(140);
-        targetDistance(170,700,150,0);
+        turn(-91);
         finish_task(21);
         break;
       case 21:
-        back_servo(90);
-        delay(100);
-        currentTask = 22;
+        targetDistance(-420,700,100,0);
+        finish_task(22);
         break;
       case 22:
-        targetDistance(-124,500,100,0);//////pushing blue sticks
-        finish_task(23);
-        break;
+         finish_task(23);
 
       case 23:
-        back_servo(140);
-        delay(100);
-        currentTask = 24;
+        turn(-90);
+        finish_task(24);
         break;
-      case 24://////leaving blue
-        targetDistance(150,700,120,0);
+      case 24://going blue placing
+        targetDistance(-224,700,100,0);
         finish_task(25);
         break; 
       case 25:
-        turn(90);
-        finish_task(26);
-        break; 
+        back_servo(150);
+        delay(100);
+        currentTask = 26;
+        break;
       case 26:
-        targetDistance(550,600,150,0);
         finish_task(27);
         break;
-
       case 27:
-        turn(-91);
-        finish_task(28);
+    
+      
+        currentTask = 28;
         break;
-      case 28:
-        targetDistance(-175,600,120,0);
+      case 28://////leaving blue
+        targetDistance(150,700,100,0);
         finish_task(29);
-        break;
-      case 29://////////lower on to cement thing
-        back_servo(90);
-        delay(200);
-        currentTask = 30;
+        break; 
+      case 29:
+        finish_task(30);
         break;
       case 30:
-        targetDistance(355,600,160,0);
+        turn(90);
         finish_task(31);
-        break;
-
-      case 31:
-       back_servo(140);////lift up
-        delay(10);
-        currentTask = 33;
         break; 
-      case 32:
-        
-        // targetDistance(-100,500,100,0);
+      case 31:
+        targetDistance(540,600,100,0);
         finish_task(32);
         break;
+
+      case 32:
+        turn(-91);
+        finish_task(33);
+        break;
       case 33:
-        turn(90);
+        // targetDistance(-110,600,100,0);
         finish_task(34);
         break;
-      case 34:
-        targetDistance(-150,500,100,0);
-        finish_task(35);
+      case 34://////////lower on to cement thing
+        back_servo(90);
+        delay(200);
+        currentTask = 35;
+        break;
       case 35:
-        turn(-90);
+        targetDistance(340,600,100,0);
         finish_task(36);
         break;
+
       case 36:
-        targetDistance(-1300,700,170,0);///////////////going along the side heaidng to green
-        finish_task(37);
-        break;
+       back_servo(140);////lift up
+        delay(10);
+        currentTask = 37;
+        break; 
       case 37:
-        turn(90);
+        
+        // targetDistance(-100,500,100,0);
         finish_task(38);
         break;
-        
       case 38:
-        targetDistance(-480,700,160,0);
+        turn(90);
         finish_task(39);
         break;
-
       case 39:
-        turn(-87);
+        targetDistance(-150,700,100,0);
         finish_task(40);
-        break;
       case 40:
-        targetDistance(-413,600,120,0);///going to green
+        turn(-90);
         finish_task(41);
         break;
       case 41:
-        back_servo(90);
-        currentTask = 42;
-        delay(50);
+        targetDistance(-1698,700,170,0);///////////////going along the side heaidng to green
+        finish_task(42);
         break;
       case 42:
-        turn(-180);
+        turn(90);
         finish_task(43);
         break;
+        
       case 43:
-        targetDistance(-500,600,100,0);
+        targetDistance(-460,700,160,0);
         finish_task(44);
         break;
+
       case 44:
-        back_servo(140);
-        targetDistance(170,600,100,0);
+        turn(-90);
         finish_task(45);
         break;
       case 45:
-        back_servo(90);///////pushing green
-        delay(30);
-        targetDistance(-114,600,100,0);
+        // targetDistance(-413,600,120,0);///going to green
         finish_task(46);
         break;
       case 46:
-      
-        targetDistance(465,650,100,0);
-        finish_task(47);
+        back_servo(90);
+        delay(100);
+        currentTask = 47;
+        delay(50);
         break;
-
       case 47:
-        back_servo(140);
-        turn(-90);
+        turn(-180);
         finish_task(48);
         break;
       case 48:
-        targetDistance(-212,600,100,0);
+        targetDistance(-555,600,100,0);////pushing green
         finish_task(49);
         break;
       case 49:
-        turn(-90);
+        back_servo(140);
+        targetDistance(450,600,100,0);
         finish_task(50);
         break;
       case 50:
-        // targetDistance(-221,650,150,0);///////going yellow
+        // back_servo(90);///////pushing green
+        // delay(30);
+        // targetDistance(-114,600,100,0);
         finish_task(51);
-        
         break;
       case 51:
-        back_servo(90);
-        delay(50);
-        currentTask = 52;
-        break;
-      case 52:
+      
         turn(-90);
+        finish_task(52);
+        break;
+
+      case 52:
+   
+        
         finish_task(53);
         break;
       case 53:
-        targetDistance(-715,650,150,0);//////along stiucks
+        targetDistance(-212,600,100,0);
         finish_task(54);
         break;
       case 54:
-        turn(-91);
+        turn(-90);
         finish_task(55);
         break;
       case 55:
-        targetDistance(-900,600,150,0);
+       targetDistance(-120,700,100,0);
+        // targetDistance(-221,650,150,0);///////going yellow
         finish_task(56);
+        
         break;
       case 56:
-        turn(-90);
-        finish_task(57);
+        back_servo(90);
+        delay(50);
+        currentTask = 57;
         break;
       case 57:
-       targetDistance(-110,600,150,0);////////push yellow
-       finish_task(58);
-       break;
+        turn(-90);
+        finish_task(58);
+        break;
       case 58:
-
+        targetDistance(-715,650,150,0);//////along stiucks
         finish_task(59);
-        break ;
+        break;
       case 59:
-        back_servo(140);
-        targetDistance(190,600,150,0);
+        turn(-90);
         finish_task(60);
         break;
       case 60:
-        turn(180);////////turning. to face bowl
+        targetDistance(-900,600,150,0);
         finish_task(61);
-        break ;
-      case 61:
-
-        finish_task(62);
-        break ;
-      case 62:
-        back_servo(90);
-        finish_task(63);
         break;
-      case 63:
+      case 61:
         turn(-90);
+        finish_task(62);
+        break;
+      case 62:
+       targetDistance(-160,600,150,0);////////push yellow
+       finish_task(63);
+       break;
+      case 63:
+
         finish_task(64);
+        break ;
+      case 64:
+        back_servo(140);
+        targetDistance(190,600,150,0);
+        finish_task(65);
         break;
       case 65:
-        targetDistance(350,650,150,0);
+        turn(-90);////////turning. to face bowl
         finish_task(66);
-        break;
+        break ;
       case 66:
-
-        turn(-90);
+        back_servo(90);
+        targetDistance(-390,600,100,0);
         finish_task(67);
+        break ;
+      case 67:
+        turn(-180);
+        finish_task(68);
         break;
+      case 68:
+        targetDistance(-1250,700,100,0);
+        finish_task(69);
+        break;
+      
       } 
 
 
