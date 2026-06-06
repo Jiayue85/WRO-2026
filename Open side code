@@ -1,4 +1,4 @@
-//v14,open_side blue
+//v15,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -210,7 +210,7 @@ void setup() {
   rMotor.setAcceleration(600);
 
 
-
+  
   dbug("setup");
 
   pinMode(buttonPin, INPUT_PULLUP);
@@ -223,6 +223,7 @@ void setup() {
   currentTask = 1;
   digitalWrite(lEnable, LOW);
   digitalWrite(rEnable, LOW);
+  back_servo(140);
 }
 void check_button() {
   bool currentButtonState = digitalRead(buttonPin);
@@ -294,7 +295,7 @@ void loop() {
 
         // lMotor.setCurrentPosition(0);
         // rMotor.setCurrentPosition(0);
-       back_servo(90);
+       back_servo(60);
        targetDistance(-1000,700,100,0);////////going to bowl
 
        finish_task(4);
@@ -337,9 +338,9 @@ void loop() {
         finish_task(9);
         break;
       case 9: 
-        // targetDistance(20,700,100,0);
+       targetDistance(60,700,100,0);
         Serial.println("case 6");
-        back_servo(150);
+        back_servo(140);
        delay(100);
         currentTask = 10;
         break;      
@@ -353,7 +354,7 @@ void loop() {
         finish_task(12);
         break;
       case 12:
-        back_servo(90);
+        back_servo(60);
         delay(100);
         finish_task(13);
         break;
@@ -442,7 +443,7 @@ void loop() {
         finish_task(34);
         break;
       case 34://////////lower on to cement thing
-        back_servo(90);
+        back_servo(60);
         delay(200);
         currentTask = 35;
         break;
@@ -452,7 +453,7 @@ void loop() {
         break;
 
       case 36:
-       back_servo(140);////lift up
+       back_servo(150);////lift up
         delay(10);
         currentTask = 37;
         break; 
@@ -473,7 +474,7 @@ void loop() {
         finish_task(41);
         break;
       case 41:
-        targetDistance(-1698,700,170,0);///////////////going along the side heaidng to green
+        targetDistance(-1698,700,120,0);///////////////going along the side heaidng to green
         finish_task(42);
         break;
       case 42:
@@ -482,7 +483,7 @@ void loop() {
         break;
         
       case 43:
-        targetDistance(-460,700,160,0);
+        targetDistance(-460,700,120,0);
         finish_task(44);
         break;
 
@@ -495,7 +496,7 @@ void loop() {
         finish_task(46);
         break;
       case 46:
-        back_servo(90);
+        back_servo(60);
         delay(100);
         currentTask = 47;
         delay(50);
@@ -509,7 +510,7 @@ void loop() {
         finish_task(49);
         break;
       case 49:
-        back_servo(140);
+        back_servo(150);
         targetDistance(450,600,100,0);
         finish_task(50);
         break;
@@ -545,7 +546,7 @@ void loop() {
         
         break;
       case 56:
-        back_servo(90);
+        back_servo(60);
         delay(50);
         currentTask = 57;
         break;
@@ -578,7 +579,7 @@ void loop() {
         finish_task(64);
         break ;
       case 64:
-        back_servo(140);
+        back_servo(150);
         targetDistance(190,600,150,0);
         finish_task(65);
         break;
@@ -587,7 +588,7 @@ void loop() {
         finish_task(66);
         break ;
       case 66:
-        back_servo(90);
+        back_servo(60);
         targetDistance(-390,600,100,0);
         finish_task(67);
         break ;
