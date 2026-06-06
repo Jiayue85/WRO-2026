@@ -1,4 +1,4 @@
-//v15,open_side blue
+//v16,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
@@ -274,7 +274,7 @@ void loop() {
     switch (currentTask) {
       
       case 1:
-        targetDistance(35,700,100,0);
+        targetDistance(18,700,100,0);
         finish_task(2);
         
         break;
@@ -310,14 +310,14 @@ void loop() {
         Serial.println((String(millis())));
         break;
       case 4:
-        turn(-180);////////catching onto the bowl
+        turn(-183);////////catching onto the bowl
 
         finish_task(5);
         break;
 
       case 5:
         Serial.println("case 3");
-        targetDistance(550, 700, 100, 0);
+        targetDistance(565, 700, 100, 0);
         finish_task(6);
         break;
       case 6:
@@ -330,7 +330,7 @@ void loop() {
 
 
       case 7://///////pushing the bowl in the parking lot to align with blue place
-       targetDistance(-213,700,100,0);
+       targetDistance(-21,700,100,0);
        finish_task(8);
         break;
       case 8:
@@ -340,7 +340,7 @@ void loop() {
       case 9: 
        targetDistance(60,700,100,0);
         Serial.println("case 6");
-        back_servo(140);
+        back_servo(120);
        delay(100);
         currentTask = 10;
         break;      
@@ -350,7 +350,7 @@ void loop() {
 
         break;
       case 11:
-        targetDistance(-334,700,100,0);//////going to blue
+        targetDistance(-326,700,100,0);//////going to blue
         finish_task(12);
         break;
       case 12:
@@ -375,7 +375,7 @@ void loop() {
         currentTask = 17;
         break;
       case 17:
-        targetDistance(-464,700,100,0);
+        targetDistance(-458,700,100,0);
         finish_task(18);
         break;
       case 18:
@@ -406,7 +406,7 @@ void loop() {
         finish_task(25);
         break; 
       case 25:
-        back_servo(150);
+        back_servo(120);
         delay(100);
         currentTask = 26;
         break;
@@ -430,7 +430,7 @@ void loop() {
         finish_task(31);
         break; 
       case 31:
-        targetDistance(540,600,100,0);
+        targetDistance(500,600,100,0);
         finish_task(32);
         break;
 
