@@ -1,0 +1,626 @@
+//v17,open_side blue
+
+
+// New functions to turn l  & r 180 & 90
+#include <AccelStepper.h>
+AccelStepper lMotor(1, 17, 16);  //left (driverboard,step,dir)
+const int lEnable = 48;
+
+AccelStepper rMotor(1, 54, 47);  //right
+const int rEnable = 55;
+
+#include <Servo.h>
+Servo servo;
+const int servo_pin = 5;
+unsigned long last_move = 0;
+
+const int grid_Motor = 8;
+const int buttonPin = 37;
+
+int DBG = 1;  //1=on
+String msg = "";
+unsigned long lastPrintTime = 0;
+int currentTask = 0;
+bool run = false;
+bool lastButtonState = HIGH;
+
+unsigned long pauseStart = 0;
+bool waiting = false;
+
+
+
+
+const float TRACK_WIDTH = 138.0;                  //mm, distance from the center of the wheels
+const float WHEEL_DIAMETER = 88.0;                           // mm
+const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
+int STEPS_PER_REV = 200;
+float degree = 1.0;
+
+bool pauseDone(unsigned long waitTime) {
+  if (!waiting) {
+    pauseStart = millis();
+    waiting = true;
+  }
+
+  if (millis() - pauseStart >= waitTime) {
+    waiting = false;
+    return true;
+  }
+
+  return false;
+}
+
+
+
+
+void dbug(String msg) {
+
+  if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
+    lastPrintTime = millis();
+    Serial.println(msg);
+  }
+}
+
+long l_dl() {
+
+  return lMotor.distanceToGo();
+}
+
+long r_dl() {
+  return rMotor.distanceToGo();
+}
+
+//calculates the steps needed for the turn
+float stepsForTurning(float degree){
+  Serial.println((float) (((TRACK_WIDTH * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV ));
+  return (float) (((TRACK_WIDTH  * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
+}
+
+// Calculate steps for movements
+int stepsForDistance(float distance) {//mm
+  return (float)((distance/ (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
+}
+
+
+// String dbg(msg){
+
+//   if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
+//     lastPrintTime = millis();  
+//     Serial.println(msg);
+
+//   }
+// }
+
+
+void drive(){
+  rMotor.run();
+  lMotor.run();
+}
+
+
+
+// ################################################### targetDistance
+void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 straight, 1 rt, -1 lt
+  lMotor.setMaxSpeed(speed);                                           //r steps per sec
+  rMotor.setMaxSpeed(speed);
+
+
+  lMotor.setAcceleration(accel);  //steps per sec
+  rMotor.setAcceleration(accel);
+
+
+  int steps = stepsForDistance(distance_mm);
+  long rSteps = 0;
+  long lSteps = 0;
+
+  switch (turn) {
+    case 0:
+      rSteps = steps;
+      lSteps = steps;
+      break;
+    case 1:  //left
+      rSteps = -steps;
+      lSteps = steps;
+      break;
+    case -1:
+      rSteps = steps;
+      lSteps = -steps;
+      break;
+  }
+  
+  rMotor.move(rSteps);  //move relative
+  lMotor.move(lSteps);
+  //N.B. distance, speed, maxSpeed and acceleration affect one another
+
+
+
+  // rMotor.move(steps);
+  // lMotor.move(-steps);
+
+  //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
+}
+//void turn(float distance,int speed)
+void targetSteps(long steps, int speed, int accel, int turn) {
+  lMotor.setMaxSpeed(speed);
+  rMotor.setMaxSpeed(speed);
+  lMotor.setAcceleration(accel);
+  rMotor.setAcceleration(accel);
+
+  long rSteps = 0;
+  long lSteps = 0;
+  switch (turn) {
+    case 0:
+      rSteps = steps;
+      lSteps = steps;
+      break;
+    case 1:  //left
+      rSteps = -steps;
+      lSteps = steps;
+      break;
+    case -1:
+      rSteps = steps;
+      lSteps = -steps;
+      break;
+  }
+ 
+  rMotor.move(rSteps);
+  lMotor.move(lSteps);
+}
+
+void turn(int DEGREE) {// postive = left negative = right
+
+  int direction = (DEGREE < 0) ? 1 : -1;
+  targetSteps(stepsForTurning(abs(DEGREE)), 500, 100, direction);
+  // targetSteps(stepsForTurning(DEGREE), 500, 100, direction);
+  //return 1
+}
+
+void carteraige_servo(int angle){// servo write 90 is having the grid flat on the floor
+  if (millis() - last_move > 50){
+    last_move = millis();
+     servo.write(angle);
+  }
+}
+
+
+void back_servo(int angle){// servo write 90 is having the grid flat on the floor
+  if (millis() - last_move > 50){
+    last_move = millis();
+     servo.write(angle);
+  }
+}
+
+
+
+void setup() {
+
+  servo.attach(servo_pin);
+
+  Serial.begin(115200);
+  lMotor.setEnablePin(lEnable);
+  rMotor.setEnablePin(rEnable);
+
+
+  delay(100);
+  lMotor.setMaxSpeed(1100);  //r steps per sec
+  rMotor.setMaxSpeed(1100);
+
+  lMotor.setAcceleration(600);  //steps per sec
+  rMotor.setAcceleration(600);
+
+
+  
+  dbug("setup");
+
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(lEnable, OUTPUT);
+  pinMode(rEnable, OUTPUT);
+  lMotor.setCurrentPosition(0);
+  rMotor.setCurrentPosition(0);
+
+
+  currentTask = 1;
+  digitalWrite(lEnable, LOW);
+  digitalWrite(rEnable, LOW);
+  back_servo(120);
+}
+void check_button() {
+  bool currentButtonState = digitalRead(buttonPin);
+
+  if (currentButtonState == LOW && lastButtonState == HIGH) {
+    run = !run;
+    delay(300); // debounce
+
+    if (!run) {
+      currentTask = 1;
+      lMotor.stop();
+      rMotor.stop();
+      lMotor.setCurrentPosition(0);
+      rMotor.setCurrentPosition(0);
+    }
+  }
+
+  lastButtonState = currentButtonState;
+}
+bool run_until_done() {
+  while ((l_dl() != 0) || (r_dl() != 0)) {
+    check_button();
+
+    if (!run) {
+      lMotor.stop();
+      rMotor.stop();
+      return false;
+      break;
+    }
+
+    lMotor.run();
+    rMotor.run();
+  }
+  return true;
+}
+void finish_task(int nextTask) {
+  if (run_until_done()) {
+    currentTask = nextTask;
+  }
+}
+
+void loop() {
+  check_button();
+
+
+  if (run) {
+
+    switch (currentTask) {
+      
+      case 1:
+        back_servo(0);/////lower back servo
+        targetDistance(18,700,100,0);
+        finish_task(2);
+        
+        break;
+        
+      case 2:
+        turn(89);///turn left
+        finish_task(3);
+        break;
+      case 3:
+        //Serial.println((String(millis())));
+        dbug("case 1");
+        // OLD (disables outputs before movement):
+        
+
+
+
+       targetDistance(-980,700,100,0);////////going to bowl
+
+       finish_task(4);
+        
+      
+
+        // lMotor.enableOutputs();
+        // rMotor.enableOutputs();
+
+
+        
+        Serial.println((String(millis())));
+        break;
+      case 4:
+        turn(-183);////////catching onto the bowl
+
+        finish_task(5);
+        break;
+
+      case 5:
+        Serial.println("case 3");
+        targetDistance(565, 700, 100, 0);
+        finish_task(6);
+        break;
+      case 6:
+        Serial.println("case 4");
+        turn(-90);
+
+
+        finish_task(7);
+        break;
+
+
+      case 7://///////pushing the bowl in the parking lot also align with blue place
+       targetDistance(-260,700,100,0);
+       finish_task(8);
+        break;
+      case 8:
+        turn(30);// to not catch onto the bowl
+        finish_task(9);
+        break;
+      case 9: 
+       targetDistance(60,700,100,0);
+        Serial.println("case 6");
+        back_servo(50);
+       delay(100);
+        currentTask = 10;
+        break;      
+      case 10:
+        turn(-120);/////turn right to face blue
+        finish_task(11);
+
+        break;
+      case 11:
+        targetDistance(-348,700,100,0);//////going to blue
+        finish_task(12);
+        break;
+      case 12:
+        back_servo(0);/////lower onto blue
+        delay(100);
+        finish_task(13);
+        break;
+      case 13:
+        turn(-60);///scoop up blue
+        finish_task(14); 
+        break;
+      case 14:
+        targetDistance(305,700,100,0);
+        finish_task(15);
+        break;
+      case 15:
+        turn(-32);
+        
+        finish_task(16);
+        break;
+      case 16:
+        currentTask = 17;
+        break;
+      case 17:
+        targetDistance(-458,700,100,0);//// travel along the sticks to the shovel
+        finish_task(18);
+        break;
+      case 18:
+        turn(-91);
+        finish_task(19);
+        break;
+      case 19:
+        targetDistance(-1300,700,100,0);///////////////going along the shovel, trowel
+        finish_task(20);
+        break;
+      case 20:
+        turn(-91);////turn right 
+        finish_task(21);
+        break;
+      case 21:
+        targetDistance(-420,700,100,0);//going along the blocks
+        finish_task(22);
+        break;
+      case 22:
+         finish_task(23);
+
+      case 23:
+        turn(-90);///turn to face blue placing box
+        finish_task(24);
+        break;
+      case 24://going blue placing
+        targetDistance(-240,700,100,0);
+        finish_task(25);
+        break; 
+      case 25:
+        back_servo(50);
+        delay(100);
+        currentTask = 26;
+        break;
+      case 26:
+        finish_task(27);
+        break;
+      case 27:
+    
+      
+        currentTask = 28;
+        break;
+      case 28://////leaving blue
+        targetDistance(150,700,100,0);
+        finish_task(29);
+        break; 
+      case 29:
+        finish_task(30);
+        break;
+      case 30:
+        turn(90);
+        finish_task(31);
+        break; 
+      case 31:
+        targetDistance(500,600,100,0);////travel to the edge of the map
+        finish_task(32);
+        break;
+
+      case 32:
+        turn(-91);///face trowel
+        finish_task(33);
+        break;
+      case 33:
+        // targetDistance(-110,600,100,0);
+        finish_task(34);
+        break;
+      case 34://////////lower on to cement trwoel thing
+        back_servo(0);
+        delay(200);
+        currentTask = 35;
+        break;
+      case 35:
+        targetDistance(340,600,100,0);///drag it back
+        finish_task(36);
+        break;
+
+      case 36:
+       back_servo(50);////lift up
+        delay(10);
+        currentTask = 37;
+        break; 
+      case 37:
+        
+        // targetDistance(-100,500,100,0);
+        finish_task(38);
+        break;
+      case 38:
+        turn(90);
+        finish_task(39);
+        break;
+      case 39:
+        targetDistance(-150,700,100,0);
+        finish_task(40);
+      case 40:
+        turn(-90);
+        finish_task(41);
+        break;
+      case 41:
+        targetDistance(-1698,700,120,0);///////////////going along the trowel and shovel heaidng to green
+        finish_task(42);
+        break;
+      case 42:
+        turn(90);//turn left
+        finish_task(43);
+        break;
+        
+      case 43:
+        targetDistance(-460,700,120,0);
+        finish_task(44);
+        break;
+
+      case 44:
+        turn(-90);//turn right to face green
+        finish_task(45);
+        break;
+      case 45:
+        // targetDistance(-413,600,120,0);///going to green
+        finish_task(46);
+        break;
+      case 46:
+        back_servo(0);
+        delay(100);
+        currentTask = 47;
+        delay(50);
+        break;
+      case 47:
+        turn(-180);///spin around
+        finish_task(48);
+        break;
+      case 48:
+        targetDistance(-555,600,100,0);////pushing green to box
+        finish_task(49);
+        break;
+      case 49:
+        back_servo(50);
+        targetDistance(450,600,100,0);
+        finish_task(50);
+        break;
+      case 50:
+        // back_servo(90);///////pushing green
+        // delay(30);
+        // targetDistance(-114,600,100,0);
+        finish_task(51);
+        break;
+      case 51:
+      
+        turn(-90);//turn right
+        finish_task(52);
+        break;
+
+      case 52:
+   
+        
+        finish_task(53);
+        break;
+      case 53:
+        targetDistance(-212,600,100,0);
+        finish_task(54);
+        break;
+      case 54:
+        turn(-90);///turn right to face yellow
+        finish_task(55);
+        break;
+      case 55:
+       targetDistance(-120,700,100,0);////going to yellow
+        // targetDistance(-221,650,150,0);///////going yellow
+        finish_task(56);
+        
+        break;
+      case 56:
+        back_servo(0);
+        delay(50);
+        currentTask = 57;
+        break;
+      case 57:
+        turn(-90);//turn right 
+        finish_task(58);
+        break;
+      case 58:
+        targetDistance(-715,650,150,0);//////travel on top of the empty boxes
+        finish_task(59);
+        break;
+      case 59:
+        turn(-90);
+        finish_task(60);
+        break;
+      case 60:
+        targetDistance(-900,600,150,0);////along trwowl
+        finish_task(61);
+        break;
+      case 61:
+        turn(-90);
+        finish_task(62);
+        break;
+      case 62:
+       targetDistance(-160,600,150,0);////////push yellow
+       finish_task(63);
+       break;
+      case 63:
+
+        finish_task(64);
+        break ;
+      case 64:
+        back_servo(50);
+        targetDistance(220,600,150,0);///aligning with shovel
+        finish_task(65);
+        break;
+      case 65:
+        turn(-90);////////turning right
+        finish_task(66);
+        break ;
+      case 66: 
+       
+        targetDistance(-540,600,100,0);/////going to shovel
+        finish_task(67);
+        break ;
+      case 67:
+        back_servo(0);//////get shovel
+        delay(70);
+        finish_task(68);
+        break;
+      case 68:
+        targetDistance(750,700,100,0);
+        finish_task(69);
+        break;
+      case 69:
+        turn(-45);///turn to avoid thing
+        finish_task(70);
+        break;
+      case 70:
+        targetDistance(70,700,100,0);
+        finish_task(71);
+        break;
+      case 71:
+        turn(45);
+        finish_task(72);
+        break;
+      case 72:
+        targetDistance(320,700,100,0);////heading to the starting box
+        finish_task(73);
+        break;
+      
+      } 
+
+
+
+  } else {
+    //whatever else  needs to stop
+    lMotor.stop();
+    rMotor.stop();
+  }
+
+}
