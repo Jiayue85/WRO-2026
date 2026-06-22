@@ -1,0 +1,879 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+// ========================================================
+// Wi-Fi access point settings
+// ========================================================
+
+const char* AP_SSID = "Robot-Debug";
+const char* AP_PASSWORD = "debug123";
+
+// ========================================================
+// Serial connection to Arduino Mega
+// ========================================================
+
+constexpr int MEGA_RX_PIN = 16;
+constexpr int MEGA_TX_PIN = 17;
+constexpr unsigned long DEBUG_BAUD = 115200;
+
+HardwareSerial MegaSerial(2);
+
+// ========================================================
+// Web server
+// ========================================================
+
+WebServer server(80);
+
+// ========================================================
+// Log storage
+// ========================================================
+
+constexpr uint8_t MAX_LOGS = 80;
+constexpr size_t MAX_MESSAGE_LENGTH = 250;
+
+struct LogEntry
+{
+  uint32_t id;
+  uint32_t timestamp;
+  String message;
+};
+
+LogEntry logs[MAX_LOGS];
+
+uint8_t logStart = 0;
+uint8_t logCount = 0;
+uint32_t nextLogId = 1;
+
+String incomingMessage;
+
+// ========================================================
+// Website
+// ========================================================
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Robot Debug Console</title>
+
+  <style>
+    :root {
+      --background: #090d16;
+      --panel: #111827;
+      --panel-light: #182235;
+      --border: #29364c;
+      --text: #e5e7eb;
+      --muted: #8995a8;
+      --blue: #4da3ff;
+      --green: #3ddc97;
+      --yellow: #ffcc66;
+      --red: #ff667a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, #162541, transparent 35%),
+        radial-gradient(circle at top right, #152d29, transparent 30%),
+        var(--background);
+      color: var(--text);
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    }
+
+    .container {
+      width: min(1200px, calc(100% - 30px));
+      margin: 0 auto;
+      padding: 30px 0;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.7rem, 4vw, 2.7rem);
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 15px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(17, 24, 39, 0.8);
+      white-space: nowrap;
+    }
+
+    .connection-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 12px var(--red);
+    }
+
+    .connection-dot.connected {
+      background: var(--green);
+      box-shadow: 0 0 12px var(--green);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      padding: 17px;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-top: 5px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 14px;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 14px 14px 0 0;
+    }
+
+    input[type="search"] {
+      flex: 1;
+      min-width: 190px;
+      padding: 11px 13px;
+      color: var(--text);
+      background: var(--panel-light);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      outline: none;
+    }
+
+    input[type="search"]:focus {
+      border-color: var(--blue);
+    }
+
+    button {
+      padding: 10px 15px;
+      color: var(--text);
+      background: var(--panel-light);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      border-color: var(--blue);
+    }
+
+    button.danger:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      padding: 0 6px;
+    }
+
+    .console {
+      height: min(650px, 65vh);
+      overflow-y: auto;
+      padding: 12px;
+      background: rgba(7, 11, 19, 0.92);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
+      font-family:
+        "Cascadia Code",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+    }
+
+    .log-entry {
+      display: grid;
+      grid-template-columns: 85px 65px 1fr;
+      align-items: start;
+      gap: 12px;
+      padding: 10px 12px;
+      margin-bottom: 7px;
+      border: 1px solid transparent;
+      border-left-width: 4px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.025);
+      animation: appear 0.18s ease-out;
+    }
+
+    @keyframes appear {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .log-time {
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding-top: 2px;
+    }
+
+    .log-level {
+      text-align: center;
+      padding: 3px 6px;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 800;
+    }
+
+    .log-message {
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+
+    .info {
+      border-left-color: var(--blue);
+    }
+
+    .info .log-level {
+      color: var(--blue);
+      background: rgba(77, 163, 255, 0.12);
+    }
+
+    .ok {
+      border-left-color: var(--green);
+    }
+
+    .ok .log-level {
+      color: var(--green);
+      background: rgba(61, 220, 151, 0.12);
+    }
+
+    .warn {
+      border-left-color: var(--yellow);
+    }
+
+    .warn .log-level {
+      color: var(--yellow);
+      background: rgba(255, 204, 102, 0.12);
+    }
+
+    .error {
+      border-left-color: var(--red);
+      background: rgba(255, 102, 122, 0.05);
+    }
+
+    .error .log-level {
+      color: var(--red);
+      background: rgba(255, 102, 122, 0.12);
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 14px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .log-entry {
+        grid-template-columns: 65px 1fr;
+      }
+
+      .log-level {
+        grid-column: 1;
+      }
+
+      .log-time {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .log-message {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Robot Debug Console</h1>
+        <div class="subtitle">
+          Arduino Mega 2560 → ESP32 live serial monitor
+        </div>
+      </div>
+
+      <div class="connection">
+        <span id="connectionDot" class="connection-dot"></span>
+        <span id="connectionText">Connecting</span>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-title">Messages</div>
+        <div id="totalCount" class="stat-value">0</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">OK</div>
+        <div id="okCount" class="stat-value">0</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Warnings</div>
+        <div id="warningCount" class="stat-value">0</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-title">Errors</div>
+        <div id="errorCount" class="stat-value">0</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="toolbar">
+        <input
+          id="searchBox"
+          type="search"
+          placeholder="Search debug messages..."
+        >
+
+        <label class="checkbox">
+          <input id="autoScroll" type="checkbox" checked>
+          Auto-scroll
+        </label>
+
+        <button id="pauseButton">Pause</button>
+        <button id="clearButton" class="danger">Clear</button>
+      </div>
+
+      <div id="console" class="console">
+        <div class="empty">Waiting for debug messages...</div>
+      </div>
+    </section>
+
+    <footer>
+      Dashboard hosted locally by the ESP32
+    </footer>
+  </div>
+
+  <script>
+    const consoleElement = document.getElementById("console");
+    const searchBox = document.getElementById("searchBox");
+    const pauseButton = document.getElementById("pauseButton");
+    const clearButton = document.getElementById("clearButton");
+    const autoScroll = document.getElementById("autoScroll");
+
+    const connectionDot = document.getElementById("connectionDot");
+    const connectionText = document.getElementById("connectionText");
+
+    const totalCount = document.getElementById("totalCount");
+    const okCount = document.getElementById("okCount");
+    const warningCount = document.getElementById("warningCount");
+    const errorCount = document.getElementById("errorCount");
+
+    let paused = false;
+    let lastData = [];
+
+    function classifyMessage(message) {
+      const value = message.trim().toLowerCase();
+
+      if (
+        value.startsWith("error:") ||
+        value.startsWith("[error]") ||
+        value.startsWith("err:")
+      ) {
+        return "error";
+      }
+
+      if (
+        value.startsWith("warn:") ||
+        value.startsWith("warning:") ||
+        value.startsWith("[warn]")
+      ) {
+        return "warn";
+      }
+
+      if (
+        value.startsWith("ok:") ||
+        value.startsWith("success:") ||
+        value.startsWith("[ok]")
+      ) {
+        return "ok";
+      }
+
+      return "info";
+    }
+
+    function setConnectionState(connected) {
+      if (connected) {
+        connectionDot.classList.add("connected");
+        connectionText.textContent = "Connected";
+      } else {
+        connectionDot.classList.remove("connected");
+        connectionText.textContent = "Disconnected";
+      }
+    }
+
+    function renderLogs(data) {
+      lastData = data;
+
+      const searchText = searchBox.value.trim().toLowerCase();
+
+      let okay = 0;
+      let warnings = 0;
+      let errors = 0;
+
+      consoleElement.innerHTML = "";
+
+      data.forEach((item) => {
+        const level = classifyMessage(item.message);
+
+        if (level === "ok") okay++;
+        if (level === "warn") warnings++;
+        if (level === "error") errors++;
+
+        if (
+          searchText.length > 0 &&
+          !item.message.toLowerCase().includes(searchText)
+        ) {
+          return;
+        }
+
+        const entry = document.createElement("div");
+        entry.className = `log-entry ${level}`;
+
+        const time = document.createElement("div");
+        time.className = "log-time";
+        time.textContent = item.time;
+
+        const badge = document.createElement("div");
+        badge.className = "log-level";
+        badge.textContent = level.toUpperCase();
+
+        const message = document.createElement("div");
+        message.className = "log-message";
+        message.textContent = item.message;
+
+        entry.appendChild(time);
+        entry.appendChild(badge);
+        entry.appendChild(message);
+
+        consoleElement.appendChild(entry);
+      });
+
+      totalCount.textContent = data.length;
+      okCount.textContent = okay;
+      warningCount.textContent = warnings;
+      errorCount.textContent = errors;
+
+      if (consoleElement.children.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+
+        empty.textContent =
+          data.length === 0
+            ? "Waiting for debug messages..."
+            : "No messages match your search.";
+
+        consoleElement.appendChild(empty);
+      }
+
+      if (autoScroll.checked) {
+        consoleElement.scrollTop = consoleElement.scrollHeight;
+      }
+    }
+
+    async function loadLogs() {
+      if (paused) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/logs", {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP error");
+        }
+
+        const data = await response.json();
+
+        renderLogs(data);
+        setConnectionState(true);
+      } catch (error) {
+        setConnectionState(false);
+      }
+    }
+
+    pauseButton.addEventListener("click", () => {
+      paused = !paused;
+      pauseButton.textContent = paused ? "Resume" : "Pause";
+
+      if (!paused) {
+        loadLogs();
+      }
+    });
+
+    clearButton.addEventListener("click", async () => {
+      try {
+        await fetch("/api/clear", {
+          method: "POST"
+        });
+
+        await loadLogs();
+      } catch (error) {
+        setConnectionState(false);
+      }
+    });
+
+    searchBox.addEventListener("input", () => {
+      renderLogs(lastData);
+    });
+
+    loadLogs();
+    setInterval(loadLogs, 500);
+  </script>
+</body>
+</html>
+)rawliteral";
+
+// ========================================================
+// Utility functions
+// ========================================================
+
+String formatTimestamp(uint32_t milliseconds)
+{
+  uint32_t totalSeconds = milliseconds / 1000;
+
+  uint32_t hours = totalSeconds / 3600;
+  uint32_t minutes = (totalSeconds % 3600) / 60;
+  uint32_t seconds = totalSeconds % 60;
+
+  char result[20];
+
+  snprintf(
+    result,
+    sizeof(result),
+    "%02lu:%02lu:%02lu",
+    static_cast<unsigned long>(hours),
+    static_cast<unsigned long>(minutes),
+    static_cast<unsigned long>(seconds)
+  );
+
+  return String(result);
+}
+
+String escapeJson(const String& input)
+{
+  String output;
+  output.reserve(input.length() + 10);
+
+  for (size_t i = 0; i < input.length(); i++)
+  {
+    char character = input.charAt(i);
+
+    switch (character)
+    {
+      case '"':
+        output += "\\\"";
+        break;
+
+      case '\\':
+        output += "\\\\";
+        break;
+
+      case '\n':
+        output += "\\n";
+        break;
+
+      case '\r':
+        output += "\\r";
+        break;
+
+      case '\t':
+        output += "\\t";
+        break;
+
+      default:
+        if (static_cast<uint8_t>(character) >= 32)
+        {
+          output += character;
+        }
+        break;
+    }
+  }
+
+  return output;
+}
+
+// ========================================================
+// Log management
+// ========================================================
+
+void addLog(String message)
+{
+  message.trim();
+
+  if (message.length() == 0)
+  {
+    return;
+  }
+
+  uint8_t position;
+
+  if (logCount < MAX_LOGS)
+  {
+    position = (logStart + logCount) % MAX_LOGS;
+    logCount++;
+  }
+  else
+  {
+    position = logStart;
+    logStart = (logStart + 1) % MAX_LOGS;
+  }
+
+  logs[position].id = nextLogId++;
+  logs[position].timestamp = millis();
+  logs[position].message = message;
+
+  // Also show received messages in the ESP32 Serial Monitor.
+  Serial.print("[MEGA] ");
+  Serial.println(message);
+}
+
+void clearLogs()
+{
+  for (uint8_t i = 0; i < MAX_LOGS; i++)
+  {
+    logs[i].message = "";
+  }
+
+  logStart = 0;
+  logCount = 0;
+}
+
+// ========================================================
+// Serial receiver
+// ========================================================
+
+void readMegaSerial()
+{
+  while (MegaSerial.available() > 0)
+  {
+    char character = MegaSerial.read();
+
+    if (character == '\n')
+    {
+      addLog(incomingMessage);
+      incomingMessage = "";
+    }
+    else if (character != '\r')
+    {
+      if (incomingMessage.length() < MAX_MESSAGE_LENGTH)
+      {
+        incomingMessage += character;
+      }
+    }
+  }
+}
+
+// ========================================================
+// Web request handlers
+// ========================================================
+
+void handleHomepage()
+{
+  server.send_P(200, "text/html", INDEX_HTML);
+}
+
+void handleLogs()
+{
+  String json;
+  json.reserve(24000);
+
+  json = "[";
+
+  for (uint8_t i = 0; i < logCount; i++)
+  {
+    uint8_t position = (logStart + i) % MAX_LOGS;
+
+    if (i > 0)
+    {
+      json += ",";
+    }
+
+    json += "{\"id\":";
+    json += String(logs[position].id);
+
+    json += ",\"time\":\"";
+    json += formatTimestamp(logs[position].timestamp);
+
+    json += "\",\"message\":\"";
+    json += escapeJson(logs[position].message);
+
+    json += "\"}";
+  }
+
+  json += "]";
+
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", json);
+}
+
+void handleClear()
+{
+  clearLogs();
+  addLog("INFO: Debug log cleared");
+
+  server.send(
+    200,
+    "application/json",
+    "{\"success\":true}"
+  );
+}
+
+// ========================================================
+// Setup
+// ========================================================
+
+void setup()
+{
+  Serial.begin(115200);
+
+  MegaSerial.begin(
+    DEBUG_BAUD,
+    SERIAL_8N1,
+    MEGA_RX_PIN,
+    MEGA_TX_PIN
+  );
+
+  incomingMessage.reserve(MAX_MESSAGE_LENGTH);
+
+  WiFi.mode(WIFI_AP);
+
+  bool accessPointStarted = WiFi.softAP(
+    AP_SSID,
+    AP_PASSWORD
+  );
+
+  if (!accessPointStarted)
+  {
+    Serial.println("Failed to start Wi-Fi access point.");
+  }
+
+  server.on("/", HTTP_GET, handleHomepage);
+  server.on("/api/logs", HTTP_GET, handleLogs);
+  server.on("/api/clear", HTTP_POST, handleClear);
+
+  server.onNotFound([]()
+  {
+    server.send(404, "text/plain", "Page not found");
+  });
+
+  server.begin();
+
+  IPAddress address = WiFi.softAPIP();
+
+  Serial.println();
+  Serial.println("ESP32 debug dashboard started");
+  Serial.print("Wi-Fi network: ");
+  Serial.println(AP_SSID);
+  Serial.print("Dashboard address: http://");
+  Serial.println(address);
+
+  addLog("OK: ESP32 debug dashboard started");
+  addLog("INFO: Waiting for Arduino Mega messages");
+}
+
+// ========================================================
+// Main loop
+// ========================================================
+
+void loop()
+{
+  readMegaSerial();
+  server.handleClient();
+
+  delay(1);
+}
