@@ -1,0 +1,69 @@
+/*
+  Arduino Mega 2560 debug transmitter
+
+  Serial  = USB Serial Monitor
+  Serial1 = Communication with ESP32
+
+  Mega Serial1 pins:
+  TX1 = pin 18
+  RX1 = pin 19
+*/
+
+constexpr unsigned long DEBUG_BAUD = 115200;
+
+// Send a normal string.
+void debugLog(const String& message)
+{
+  Serial1.println(message);
+}
+
+// Allows debugLog("message");
+void debugLog(const char* message)
+{
+  Serial1.println(message);
+}
+
+// Allows debugLog(F("message stored in flash"));
+void debugLog(const __FlashStringHelper* message)
+{
+  Serial1.println(message);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial1.begin(DEBUG_BAUD);
+
+  delay(1000);
+
+  debugLog("OK: Arduino Mega started");
+  debugLog("INFO: Initialising systems");
+}
+
+void loop()
+{
+  static unsigned long previousMessage = 0;
+  static unsigned long counter = 0;
+
+  if (millis() - previousMessage >= 2000)
+  {
+    previousMessage = millis();
+    counter++;
+
+    debugLog("INFO: Loop counter = " + String(counter));
+
+    // Example sensor values
+    int exampleSensor = analogRead(A0);
+    debugLog("SENSOR: A0 = " + String(exampleSensor));
+
+    if (exampleSensor > 900)
+    {
+      debugLog("WARN: Sensor value is very high");
+    }
+
+    if (counter % 10 == 0)
+    {
+      debugLog("OK: Ten loop cycles completed");
+    }
+  }
+}
