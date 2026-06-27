@@ -1,9 +1,38 @@
-//v1 after comp
+/*
+  V2 after comp + ESP32 Serial3 debug output
 
+  Arduino Mega 2560 serial ports:
+    Serial  = USB Serial Monitor
+    Serial3 = ESP32 debug connection
 
-// New functions to turn l  & r 180 & 90
+  Mega Serial3 pins:
+    TX3 = pin 14 -> ESP32 RX through a 5 V to 3.3 V level shifter/divider
+    RX3 = pin 15 <- ESP32 TX
+*/
+
 #include <Servo.h>
 #include <AccelStepper.h>
+#include <Wire.h>
+
+constexpr unsigned long USB_BAUD = 115200;
+constexpr unsigned long DEBUG_BAUD = 115200;
+
+// -----------------------------------------------------------------------------
+// MPU6050 heading-hold settings
+// -----------------------------------------------------------------------------
+// Mount the MPU6050 flat and rigidly, with its Z axis vertical.
+// If the robot corrects in the WRONG direction, change this from +1.0 to -1.0.
+constexpr float HEADING_CORRECTION_SIGN = 1.0f;
+
+// Starting values. Tune these on the actual robot.
+constexpr float HEADING_KP = 10.0f;              // steps/s correction per degree of error
+constexpr float HEADING_KD = 0.8f;               // damping from gyro rate
+constexpr float HEADING_DEADBAND_DEG = 0.15f;    // ignore tiny noise
+constexpr float MAX_HEADING_CORRECTION = 180.0f; // maximum steps/s added/subtracted
+constexpr float MIN_HOLD_DISTANCE_MM = 80.0f;    // do not correct very short moves
+constexpr unsigned long MPU_UPDATE_US = 4000;    // about 250 Hz maximum update rate
+constexpr unsigned long HEADING_DEBUG_MS = 250;
+constexpr float GYRO_SCALE_250DPS = 131.0f;
 
 //define stepper motors
 
@@ -33,7 +62,7 @@ int currentTask = 0;
 // butoooooon
 
 bool run = true;//////////////////////////////////////////////
-bool toggleState = false;
+bool toggleState = true;  // Must match the initial value of run
 bool lastButtonState = HIGH;
 bool currentState = HIGH;
 unsigned long lastDebounceTime = 0;
@@ -50,8 +79,264 @@ String cases, casenum ;
 const float TRACK_WIDTH = 136.0;                  //mm, distance from the center of the wheels
 const float WHEEL_DIAMETER = 88.0;                           // mm
 const float WHEEL_CIRCUMFERENCE = 3.14159 * WHEEL_DIAMETER;  // ~276.46 mm
-int STEPS_PER_REV = 200;
+int STEPS_PER_REV = 200;  // Include driver microstepping here if it is enabled.
 float degree = 1.0;
+
+// MPU6050 state
+uint8_t mpuAddress = 0x68;
+bool mpuReady = false;
+float gyroBiasRaw = 0.0f;
+float gyroZRateDps = 0.0f;
+float yawDegrees = 0.0f;
+float accelMagnitudeG = 1.0f;
+unsigned long lastMpuMicros = 0;
+
+// Straight-line heading hold state
+bool headingHoldActive = false;
+float headingTargetDegrees = 0.0f;
+float straightBaseSpeed = 0.0f;
+int straightTravelDirection = 1; // +1 forward target steps, -1 reverse target steps
+unsigned long lastHeadingDebugTime = 0;
+
+// Send every debug message to both the USB Serial Monitor and the ESP32.
+void debugLog(const String& message) {
+  Serial.println(message);
+  Serial3.println(message);
+}
+
+void debugLog(const char* message) {
+  Serial.println(message);
+  Serial3.println(message);
+}
+
+void debugLog(const __FlashStringHelper* message) {
+  Serial.println(message);
+  Serial3.println(message);
+}
+
+
+void check_button();
+
+// -----------------------------------------------------------------------------
+// MPU6050 low-level I2C and heading functions
+// This uses Wire directly, so no extra MPU6050 library is required.
+// -----------------------------------------------------------------------------
+bool mpuWriteRegister(uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(mpuAddress);
+  Wire.write(reg);
+  Wire.write(value);
+  return Wire.endTransmission() == 0;
+}
+
+bool mpuReadRegisters(uint8_t startReg, uint8_t* data, uint8_t length) {
+  Wire.beginTransmission(mpuAddress);
+  Wire.write(startReg);
+  if (Wire.endTransmission(false) != 0) {
+    return false;
+  }
+
+  const uint8_t received = Wire.requestFrom(mpuAddress, length);
+  if (received != length) {
+    while (Wire.available()) {
+      Wire.read();
+    }
+    return false;
+  }
+
+  for (uint8_t i = 0; i < length; i++) {
+    data[i] = Wire.read();
+  }
+  return true;
+}
+
+bool mpuAddressResponds(uint8_t address) {
+  mpuAddress = address;
+  uint8_t whoAmI = 0;
+  if (!mpuReadRegisters(0x75, &whoAmI, 1)) {
+    return false;
+  }
+  return whoAmI == 0x68 || whoAmI == 0x69;
+}
+
+bool initialiseMPU6050() {
+  if (!mpuAddressResponds(0x68) && !mpuAddressResponds(0x69)) {
+    return false;
+  }
+
+  // Wake sensor and use the X gyro PLL as its clock source.
+  if (!mpuWriteRegister(0x6B, 0x01)) return false; // PWR_MGMT_1
+  delay(100);
+
+  // 1 kHz internal rate / (1 + 4) = 200 Hz sample rate.
+  if (!mpuWriteRegister(0x19, 0x04)) return false; // SMPLRT_DIV
+  if (!mpuWriteRegister(0x1A, 0x03)) return false; // CONFIG: DLPF about 44 Hz gyro
+  if (!mpuWriteRegister(0x1B, 0x00)) return false; // GYRO_CONFIG: +/-250 dps
+  if (!mpuWriteRegister(0x1C, 0x00)) return false; // ACCEL_CONFIG: +/-2 g
+
+  lastMpuMicros = micros();
+  return true;
+}
+
+bool readMPU6050Raw(int16_t& ax, int16_t& ay, int16_t& az,
+                    int16_t& gx, int16_t& gy, int16_t& gz) {
+  uint8_t data[14];
+  if (!mpuReadRegisters(0x3B, data, sizeof(data))) {
+    return false;
+  }
+
+  ax = (int16_t)((data[0] << 8) | data[1]);
+  ay = (int16_t)((data[2] << 8) | data[3]);
+  az = (int16_t)((data[4] << 8) | data[5]);
+  gx = (int16_t)((data[8] << 8) | data[9]);
+  gy = (int16_t)((data[10] << 8) | data[11]);
+  gz = (int16_t)((data[12] << 8) | data[13]);
+  return true;
+}
+
+bool calibrateMPU6050Gyro() {
+  debugLog(F("INFO: Keep the robot completely still - calibrating MPU6050"));
+
+  int16_t ax, ay, az, gx, gy, gz;
+  long totalGz = 0;
+  int validSamples = 0;
+
+  // Discard initial samples after wake-up.
+  for (int i = 0; i < 100; i++) {
+    readMPU6050Raw(ax, ay, az, gx, gy, gz);
+    delay(2);
+  }
+
+  constexpr int CALIBRATION_SAMPLES = 1200;
+  for (int i = 0; i < CALIBRATION_SAMPLES; i++) {
+    if (readMPU6050Raw(ax, ay, az, gx, gy, gz)) {
+      totalGz += gz;
+      validSamples++;
+    }
+    delay(2);
+  }
+
+  if (validSamples < CALIBRATION_SAMPLES / 2) {
+    debugLog(F("ERROR: MPU6050 calibration failed"));
+    return false;
+  }
+
+  gyroBiasRaw = (float)totalGz / (float)validSamples;
+  gyroZRateDps = 0.0f;
+  yawDegrees = 0.0f;
+  lastMpuMicros = micros();
+
+  debugLog(String(F("OK: MPU6050 calibrated, Z bias=")) + String(gyroBiasRaw, 2));
+  return true;
+}
+
+void updateMPU6050() {
+  if (!mpuReady) return;
+
+  const unsigned long now = micros();
+  const unsigned long elapsed = now - lastMpuMicros;
+  if (elapsed < MPU_UPDATE_US) return;
+
+  lastMpuMicros = now;
+  float dt = elapsed * 0.000001f;
+  if (dt <= 0.0f || dt > 0.1f) {
+    return;
+  }
+
+  int16_t ax, ay, az, gx, gy, gz;
+  if (!readMPU6050Raw(ax, ay, az, gx, gy, gz)) {
+    return;
+  }
+
+  gyroZRateDps = ((float)gz - gyroBiasRaw) / GYRO_SCALE_250DPS;
+  yawDegrees += gyroZRateDps * dt;
+
+  const float axG = ax / 16384.0f;
+  const float ayG = ay / 16384.0f;
+  const float azG = az / 16384.0f;
+  accelMagnitudeG = sqrt(axG * axG + ayG * ayG + azG * azG);
+
+  // Slowly refine gyro bias only while the robot is genuinely stationary.
+  if (!headingHoldActive && lMotor.distanceToGo() == 0 && rMotor.distanceToGo() == 0 &&
+      fabs(gyroZRateDps) < 0.75f && accelMagnitudeG > 0.92f && accelMagnitudeG < 1.08f) {
+    gyroBiasRaw = gyroBiasRaw * 0.9995f + (float)gz * 0.0005f;
+  }
+}
+
+float wrappedAngleError(float target, float measured) {
+  float error = target - measured;
+  while (error > 180.0f) error -= 360.0f;
+  while (error < -180.0f) error += 360.0f;
+  return error;
+}
+
+void stopHeadingHold() {
+  headingHoldActive = false;
+}
+
+void beginHeadingHold(float distanceMm, long targetSteps, int speed) {
+  updateMPU6050();
+
+  straightBaseSpeed = speed;
+  straightTravelDirection = (targetSteps >= 0) ? 1 : -1;
+  headingTargetDegrees = yawDegrees;
+  lastHeadingDebugTime = 0;
+
+  headingHoldActive = mpuReady && fabs(distanceMm) >= MIN_HOLD_DISTANCE_MM;
+
+  if (headingHoldActive) {
+    debugLog(String(F("GYRO: heading hold ON, target=")) +
+             String(headingTargetDegrees, 2) + F(" deg"));
+  } else if (!mpuReady) {
+    debugLog(F("WARN: Straight move running without MPU6050 correction"));
+  }
+}
+
+void applyHeadingHold() {
+  updateMPU6050();
+  if (!headingHoldActive) return;
+
+  float error = wrappedAngleError(headingTargetDegrees, yawDegrees);
+  if (fabs(error) < HEADING_DEADBAND_DEG) {
+    error = 0.0f;
+  }
+
+  float correction = (HEADING_KP * error) - (HEADING_KD * gyroZRateDps);
+  correction *= HEADING_CORRECTION_SIGN;
+
+  const float proportionalLimit = straightBaseSpeed * 0.35f;
+  const float correctionLimit = min(MAX_HEADING_CORRECTION, proportionalLimit);
+  correction = constrain(correction, -correctionLimit, correctionLimit);
+
+  // Reverse moves need the speed differential reversed to create the same yaw correction.
+  const float wheelAdjustment = correction * straightTravelDirection;
+  float rightMaxSpeed = straightBaseSpeed + wheelAdjustment;
+  float leftMaxSpeed = straightBaseSpeed - wheelAdjustment;
+
+  const float minimumAllowedSpeed = max(60.0f, straightBaseSpeed * 0.55f);
+  rightMaxSpeed = constrain(rightMaxSpeed, minimumAllowedSpeed, 1100.0f);
+  leftMaxSpeed = constrain(leftMaxSpeed, minimumAllowedSpeed, 1100.0f);
+
+  rMotor.setMaxSpeed(rightMaxSpeed);
+  lMotor.setMaxSpeed(leftMaxSpeed);
+
+  if (millis() - lastHeadingDebugTime >= HEADING_DEBUG_MS) {
+    lastHeadingDebugTime = millis();
+    debugLog(String(F("GYRO: yaw=")) + String(yawDegrees, 2) +
+             F(", error=") + String(error, 2) +
+             F(", rate=") + String(gyroZRateDps, 2) +
+             F(", Lmax=") + String(leftMaxSpeed, 0) +
+             F(", Rmax=") + String(rightMaxSpeed, 0));
+  }
+}
+
+void robotDelay(unsigned long durationMs) {
+  const unsigned long start = millis();
+  while (millis() - start < durationMs) {
+    updateMPU6050();
+    check_button();
+    if (!run) return;
+  }
+}
 
 bool pauseDone(unsigned long waitTime) {
   if (!waiting) {
@@ -70,11 +355,10 @@ bool pauseDone(unsigned long waitTime) {
 
 
 
-void dbug(String msg) {
-
+void dbug(const String& message) {
   if ((millis() - lastPrintTime >= 10) && (DBG == 1)) {
     lastPrintTime = millis();
-    Serial.println(msg);
+    debugLog(message);
   }
 }
 
@@ -88,14 +372,15 @@ long r_dl() {
 }
 
 //calculates the steps needed for the turn
-float stepsForTurning(float degree){
-  Serial.println((float) (((TRACK_WIDTH * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV ));
-  return (float) (((TRACK_WIDTH  * (degree/360))/WHEEL_DIAMETER) * STEPS_PER_REV );
+float stepsForTurning(float degree) {
+  const float steps = ((TRACK_WIDTH * (degree / 360.0)) / WHEEL_DIAMETER) * STEPS_PER_REV;
+  debugLog(String(F("CALC: turn steps = ")) + String(steps, 2));
+  return steps;
 }
 
-// Calculate steps for movements
-int stepsForDistance(float distance) {//mm
-  return (float)((distance/ (WHEEL_CIRCUMFERENCE)) * STEPS_PER_REV);
+// Calculate the nearest whole step count for a requested distance.
+long stepsForDistance(float distance) { // mm
+  return lround((distance / WHEEL_CIRCUMFERENCE) * STEPS_PER_REV);
 }
 
 
@@ -117,26 +402,22 @@ void drive(){
 
 
 // ################################################### targetDistance
-void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 straight, 1 rt, -1 lt
-  lMotor.setMaxSpeed(speed);                                           //r steps per sec
+void targetDistance(float distance_mm, int speed, int accel, int turn) { // 0 straight, 1 left, -1 right
+  lMotor.setMaxSpeed(speed);
   rMotor.setMaxSpeed(speed);
-
-
-  lMotor.setAcceleration(accel);  //steps per sec
+  lMotor.setAcceleration(accel);
   rMotor.setAcceleration(accel);
 
-
-  int steps = stepsForDistance(distance_mm);
+  const long steps = stepsForDistance(distance_mm);
   long rSteps = 0;
   long lSteps = 0;
-//right wheel positive = forwards
-//left wheel negative = forwards
+
   switch (turn) {
     case 0:
       rSteps = steps;
       lSteps = steps;
       break;
-    case 1:  //left
+    case 1:
       rSteps = -steps;
       lSteps = steps;
       break;
@@ -145,20 +426,27 @@ void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 st
       lSteps = -steps;
       break;
   }
-  
-  rMotor.move(rSteps);  //move relative
+
+  debugLog(String(F("MOVE: distance=")) + String(distance_mm, 1) +
+           F(" mm, steps=") + String(steps) +
+           F(", speed=") + String(speed) +
+           F(", accel=") + String(accel) +
+           F(", mode=") + String(turn));
+
+  rMotor.move(rSteps);
   lMotor.move(lSteps);
-  //N.B. distance, speed, maxSpeed and acceleration affect one another
 
-
-
-  // rMotor.move(steps);
-  // lMotor.move(-steps);
-
-  //lMotor.setSpeed(speed); //use with runSpeed() steps /sec
+  if (turn == 0) {
+    beginHeadingHold(distance_mm, steps, speed);
+  } else {
+    stopHeadingHold();
+  }
 }
 //void turn(float distance,int speed)
 void targetSteps(long steps, int speed, int accel, int turn) {
+  stopHeadingHold();
+  updateMPU6050();
+
   lMotor.setMaxSpeed(speed);
   rMotor.setMaxSpeed(speed);
   lMotor.setAcceleration(accel);
@@ -181,11 +469,17 @@ void targetSteps(long steps, int speed, int accel, int turn) {
       break;
   }
  
+  debugLog(String(F("MOVE_STEPS: steps=")) + String(steps) +
+           F(", speed=") + String(speed) +
+           F(", accel=") + String(accel) +
+           F(", mode=") + String(turn));
+
   rMotor.move(rSteps);
   lMotor.move(lSteps);
 }
 
-void turn(int DEGREE) {// postive = left negative = right
+void turn(int DEGREE) {  // positive = left, negative = right
+  debugLog(String(F("TURN: degrees = ")) + String(DEGREE));
 
   int direction = (DEGREE < 0) ? 1 : -1;
   targetSteps(stepsForTurning(abs(DEGREE)), 500, 100, direction);
@@ -197,6 +491,7 @@ void carteraige_servo(int angle){// servo write 90 is having the grid flat on th
   if (millis() - last_move > 50){
     last_move = millis();
      servo.write(angle);
+     debugLog(String(F("SERVO: carriage angle = ")) + String(angle));
   }
 }
 
@@ -205,6 +500,7 @@ void back_servo(int angle){// servo write 90 is having the grid flat on the floo
   if (millis() - last_move > 50){
     last_move = millis();
      servo.write(angle);
+     debugLog(String(F("SERVO: back angle = ")) + String(angle));
   }
 }
 
@@ -214,7 +510,9 @@ void setup() {
 
   servo.attach(servo_pin);
 
-  Serial.begin(115200);
+  Serial.begin(USB_BAUD);
+  Serial3.begin(DEBUG_BAUD);
+
   lMotor.setEnablePin(lEnable);
   rMotor.setEnablePin(rEnable);
 
@@ -228,7 +526,7 @@ void setup() {
 
 
   
-  Serial.println("setup");
+  debugLog(F("OK: Arduino Mega setup started"));
 
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(lEnable, OUTPUT);
@@ -241,6 +539,25 @@ void setup() {
   digitalWrite(lEnable, LOW);
   digitalWrite(rEnable, LOW);
   back_servo(140);
+
+  // RUMBA/Mega I2C uses SDA pin 20 and SCL pin 21.
+  Wire.begin();
+  Wire.setClock(400000UL);
+  delay(500); // Let the robot and sensor become still before calibration.
+
+  mpuReady = initialiseMPU6050();
+  if (mpuReady) {
+    mpuReady = calibrateMPU6050Gyro();
+  }
+
+  if (mpuReady) {
+    debugLog(String(F("OK: MPU6050 ready at I2C address 0x")) + String(mpuAddress, HEX));
+  } else {
+    debugLog(F("ERROR: MPU6050 not available; gyro correction disabled"));
+  }
+
+  debugLog(F("OK: Robot initialised"));
+  debugLog(F("INFO: Debug output is active on Serial3"));
 }
 void check_button() {
   // bool currentButtonState = digitalRead(buttonPin);
@@ -272,17 +589,19 @@ void check_button() {
             currentState = reading;
 
             if (currentState == LOW) {
-                toggleState =! toggleState;
-                if (toggleState == true) {
-                  run = true;
-                  Serial.println(run);
+                toggleState = !toggleState;
+                run = toggleState;
+
+                if (run) {
+                  debugLog(F("OK: Robot resumed"));
                 } else {
                   currentTask = 1;
+                  stopHeadingHold();
                   lMotor.stop();
                   rMotor.stop();
                   lMotor.setCurrentPosition(0);
                   rMotor.setCurrentPosition(0);
-                  Serial.println(run);
+                  debugLog(F("WARN: Robot stopped and task sequence reset"));
                 }
             }
         }
@@ -297,21 +616,35 @@ bool run_until_done() {
     check_button();
 
     if (!run) {
+      stopHeadingHold();
       lMotor.stop();
       rMotor.stop();
       return false;
-      break;
+    }
+
+    if (headingHoldActive) {
+      applyHeadingHold();
+    } else {
+      updateMPU6050();
     }
 
     lMotor.run();
     rMotor.run();
   }
+
+  if (headingHoldActive) {
+    updateMPU6050();
+    const float finalError = wrappedAngleError(headingTargetDegrees, yawDegrees);
+    debugLog(String(F("GYRO: straight move complete, final error=")) +
+             String(finalError, 2) + F(" deg"));
+  }
+
+  stopHeadingHold();
   return true;
 }
 void finish_task(int nextTask) {
-  cases = String("case ");
-  casenum = String();
-  casenum = cases + currentTask ;
+  cases = String(F("TASK: case "));
+  casenum = cases + currentTask;
 
   dbug(casenum);
   
@@ -363,7 +696,7 @@ void loop() {
 
         
         
-        Serial.println((String(millis())));
+        debugLog(String(F("INFO: millis = ")) + String(millis()));
         break;
       case 4:
         turn(-183);////////catching onto the bowl
@@ -396,7 +729,7 @@ void loop() {
       case 9: 
        targetDistance(60,700,100,0);
         back_servo(120);
-        delay(100);
+        robotDelay(100);
         finish_task(10);
         break;      
       case 10:
@@ -410,7 +743,7 @@ void loop() {
         break;
       case 12:
         back_servo(60);
-        delay(100);
+        robotDelay(100);
         finish_task(13);
         break;
       case 13:
@@ -462,7 +795,7 @@ void loop() {
         break; 
       case 25:
         back_servo(120);
-        delay(100);
+        robotDelay(100);
         finish_task(26);
         break;
       case 26:
@@ -499,7 +832,7 @@ void loop() {
         break;
       case 34://////////lower on to cement thing
         back_servo(60);
-        delay(200);
+        robotDelay(200);
         finish_task(35);
         break;
       case 35:
@@ -509,7 +842,7 @@ void loop() {
 
       case 36:
        back_servo(150);////lift up
-        delay(10);
+        robotDelay(10);
         finish_task(37);
         break; 
       case 37:
@@ -553,9 +886,9 @@ void loop() {
         break;
       case 46:
         back_servo(60);
-        delay(100);
+        robotDelay(100);
         finish_task(47);
-        delay(50);
+        robotDelay(50);
         break;
       case 47:
         turn(-180);
@@ -572,7 +905,7 @@ void loop() {
         break;
       case 50:
         // back_servo(90);///////pushing green
-        // delay(30);
+        // robotDelay(30);
         // targetDistance(-114,600,100,0);
         finish_task(51);
         break;
@@ -603,7 +936,7 @@ void loop() {
         break;
       case 56:
         back_servo(60);
-        delay(50);
+        robotDelay(50);
         finish_task(57);
         break;
       case 57:
@@ -662,9 +995,12 @@ void loop() {
 
 
   } else {
-    //whatever else  needs to stop
+    // Keep the sensor and stop button responsive while paused.
+    stopHeadingHold();
     lMotor.stop();
     rMotor.stop();
+    updateMPU6050();
+    check_button();
   }
 
 }
