@@ -1,5 +1,5 @@
 /*
-  V2 after comp + ESP32 Serial3 debug output
+  V3 after comp + ESP32 Serial3 debug output
 
   Arduino Mega 2560 serial ports:
     Serial  = USB Serial Monitor
@@ -29,7 +29,8 @@ constexpr float HEADING_KP = 10.0f;              // steps/s correction per degre
 constexpr float HEADING_KD = 0.8f;               // damping from gyro rate
 constexpr float HEADING_DEADBAND_DEG = 0.15f;    // ignore tiny noise
 constexpr float MAX_HEADING_CORRECTION = 180.0f; // maximum steps/s added/subtracted
-constexpr float MIN_HOLD_DISTANCE_MM = 80.0f;    // do not correct very short moves
+constexpr float MIN_HOLD_DISTANCE_MM = 20.0f;    // gyro correction for nearly all straight moves
+constexpr float MAX_HEADING_TRIM_DEG = 25.0f;    // maximum retained wheel-distance correction
 constexpr unsigned long MPU_UPDATE_US = 4000;    // about 250 Hz maximum update rate
 constexpr unsigned long HEADING_DEBUG_MS = 250;
 constexpr float GYRO_SCALE_250DPS = 131.0f;
@@ -97,6 +98,11 @@ float headingTargetDegrees = 0.0f;
 float straightBaseSpeed = 0.0f;
 int straightTravelDirection = 1; // +1 forward target steps, -1 reverse target steps
 unsigned long lastHeadingDebugTime = 0;
+unsigned long lastHeadingControlMicros = 0;
+long straightStartLeft = 0;
+long straightStartRight = 0;
+long straightNominalSteps = 0;
+float straightTrimSteps = 0.0f;
 
 // Send every debug message to both the USB Serial Monitor and the ESP32.
 void debugLog(const String& message) {
@@ -271,15 +277,25 @@ float wrappedAngleError(float target, float measured) {
 
 void stopHeadingHold() {
   headingHoldActive = false;
+  straightTrimSteps = 0.0f;
 }
 
 void beginHeadingHold(float distanceMm, long targetSteps, int speed) {
   updateMPU6050();
 
-  straightBaseSpeed = speed;
+  straightBaseSpeed = fabs((float)speed);
   straightTravelDirection = (targetSteps >= 0) ? 1 : -1;
   headingTargetDegrees = yawDegrees;
   lastHeadingDebugTime = 0;
+  lastHeadingControlMicros = micros();
+
+  // Save the absolute starting positions. The two corrected targets are always
+  // changed by equal and opposite amounts, so their average distance remains
+  // exactly equal to targetSteps.
+  straightStartLeft = lMotor.currentPosition();
+  straightStartRight = rMotor.currentPosition();
+  straightNominalSteps = targetSteps;
+  straightTrimSteps = 0.0f;
 
   headingHoldActive = mpuReady && fabs(distanceMm) >= MIN_HOLD_DISTANCE_MM;
 
@@ -295,11 +311,17 @@ void applyHeadingHold() {
   updateMPU6050();
   if (!headingHoldActive) return;
 
+  const unsigned long nowMicros = micros();
+  float controlDt = (nowMicros - lastHeadingControlMicros) * 0.000001f;
+  lastHeadingControlMicros = nowMicros;
+  controlDt = constrain(controlDt, 0.0f, 0.05f);
+
   float error = wrappedAngleError(headingTargetDegrees, yawDegrees);
   if (fabs(error) < HEADING_DEADBAND_DEG) {
     error = 0.0f;
   }
 
+  // correction is a signed wheel-speed difference in steps/second.
   float correction = (HEADING_KP * error) - (HEADING_KD * gyroZRateDps);
   correction *= HEADING_CORRECTION_SIGN;
 
@@ -307,7 +329,25 @@ void applyHeadingHold() {
   const float correctionLimit = min(MAX_HEADING_CORRECTION, proportionalLimit);
   correction = constrain(correction, -correctionLimit, correctionLimit);
 
-  // Reverse moves need the speed differential reversed to create the same yaw correction.
+  // IMPORTANT: retain the correction in the final wheel targets.
+  // Right target gets +trim and left target gets -trim. Their sum therefore
+  // never changes, so the commanded centre distance stays exactly the same.
+  straightTrimSteps += correction * controlDt;
+
+  const float mmPerStep = WHEEL_CIRCUMFERENCE / (float)STEPS_PER_REV;
+  const float angleTrimLimit =
+      (TRACK_WIDTH * (MAX_HEADING_TRIM_DEG * 3.14159265f / 180.0f)) /
+      (2.0f * mmPerStep);
+  const float distanceTrimLimit = max(1.0f, fabs((float)straightNominalSteps) * 0.45f);
+  const float trimLimit = min(angleTrimLimit, distanceTrimLimit);
+  straightTrimSteps = constrain(straightTrimSteps, -trimLimit, trimLimit);
+
+  const long retainedTrim = lround(straightTrimSteps);
+  rMotor.moveTo(straightStartRight + straightNominalSteps + retainedTrim);
+  lMotor.moveTo(straightStartLeft + straightNominalSteps - retainedTrim);
+
+  // Reverse moves need the speed-magnitude differential reversed, because
+  // AccelStepper setMaxSpeed() accepts a positive magnitude.
   const float wheelAdjustment = correction * straightTravelDirection;
   float rightMaxSpeed = straightBaseSpeed + wheelAdjustment;
   float leftMaxSpeed = straightBaseSpeed - wheelAdjustment;
@@ -324,6 +364,7 @@ void applyHeadingHold() {
     debugLog(String(F("GYRO: yaw=")) + String(yawDegrees, 2) +
              F(", error=") + String(error, 2) +
              F(", rate=") + String(gyroZRateDps, 2) +
+             F(", trim=") + String(retainedTrim) +
              F(", Lmax=") + String(leftMaxSpeed, 0) +
              F(", Rmax=") + String(rightMaxSpeed, 0));
   }
@@ -482,25 +523,27 @@ void turn(int DEGREE) {  // positive = left, negative = right
   debugLog(String(F("TURN: degrees = ")) + String(DEGREE));
 
   int direction = (DEGREE < 0) ? 1 : -1;
-  targetSteps(stepsForTurning(abs(DEGREE)), 500, 100, direction);
+  targetSteps(lround(stepsForTurning(abs(DEGREE))), 500, 100, direction);
   // targetSteps(stepsForTurning(DEGREE), 500, 100, direction);
   //return 1
 }
 
 void carteraige_servo(int angle){// servo write 90 is having the grid flat on the floor
-  if (millis() - last_move > 50){
+  angle = constrain(angle, 0, 180);
+  servo.write(angle); // Never silently discard a requested servo position.
+  if (millis() - last_move > 50) {
     last_move = millis();
-     servo.write(angle);
-     debugLog(String(F("SERVO: carriage angle = ")) + String(angle));
+    debugLog(String(F("SERVO: carriage angle = ")) + String(angle));
   }
 }
 
 
 void back_servo(int angle){// servo write 90 is having the grid flat on the floor
-  if (millis() - last_move > 50){
+  angle = constrain(angle, 0, 180);
+  servo.write(angle); // Never silently discard a requested servo position.
+  if (millis() - last_move > 50) {
     last_move = millis();
-     servo.write(angle);
-     debugLog(String(F("SERVO: back angle = ")) + String(angle));
+    debugLog(String(F("SERVO: back angle = ")) + String(angle));
   }
 }
 
@@ -643,6 +686,9 @@ bool run_until_done() {
   return true;
 }
 void finish_task(int nextTask) {
+  // A stop pressed during robotDelay() must not advance the task sequence.
+  if (!run) return;
+
   cases = String(F("TASK: case "));
   casenum = cases + currentTask;
 
@@ -654,8 +700,8 @@ void finish_task(int nextTask) {
 }
 
 void loop() {
-  // check_button();
-
+  // Keep the button responsive even when no motor move is active.
+  check_button();
 
   if (run) {
 
