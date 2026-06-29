@@ -1,24 +1,17 @@
-//v1 aftr_comp rumba
+////wro after comp rumba v1
+//v17,open_side blue
 
 
 // New functions to turn l  & r 180 & 90
-#include <Servo.h>
 #include <AccelStepper.h>
-
-//define stepper motors
-
 AccelStepper lMotor(1, 17, 16);  //left (driverboard,step,dir)
 const int lEnable = 48;
 
 AccelStepper rMotor(1, 54, 47);  //right
 const int rEnable = 55;
 
-//define servo
-
+#include <Servo.h>
 Servo servo;
-
-// board pins
-
 const int servo_pin = 5;
 unsigned long last_move = 0;
 
@@ -29,22 +22,13 @@ int DBG = 1;  //1=on
 String msg = "";
 unsigned long lastPrintTime = 0;
 int currentTask = 0;
-
-// butoooooon
-
 bool run = false;
-bool toggleState = false;
 bool lastButtonState = HIGH;
-bool currentState = HIGH;
-unsigned long lastDebounceTime = 0;
-const int debounceDelay = 50;
 
 unsigned long pauseStart = 0;
 bool waiting = false;
 
-//case define
 
-String cases, casenum ;
 
 
 const float TRACK_WIDTH = 137.0;                  //mm, distance from the center of the wheels
@@ -72,7 +56,7 @@ bool pauseDone(unsigned long waitTime) {
 
 void dbug(String msg) {
 
-  if ((millis() - lastPrintTime >= 10) && (DBG == 1)) {
+  if ((millis() - lastPrintTime >= 50) && (DBG == 1)) {
     lastPrintTime = millis();
     Serial.println(msg);
   }
@@ -129,8 +113,7 @@ void targetDistance(float distance_mm, int speed, int accel, int turn) {  //0 st
   int steps = stepsForDistance(distance_mm);
   long rSteps = 0;
   long lSteps = 0;
-//right wheel positive = forwards
-//left wheel negative = forwards
+
   switch (turn) {
     case 0:
       rSteps = steps;
@@ -228,7 +211,7 @@ void setup() {
 
 
   
-  Serial.println("setup");
+  dbug("setup");
 
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(lEnable, OUTPUT);
@@ -243,55 +226,23 @@ void setup() {
   back_servo(160);
 }
 void check_button() {
-  // bool currentButtonState = digitalRead(buttonPin);
+  bool currentButtonState = digitalRead(buttonPin);
 
-  // if (currentButtonState == LOW && lastButtonState == HIGH) {
-  //   run = !run;
-  //   delay(300); // debounce
+  if (currentButtonState == LOW && lastButtonState == HIGH) {
+    run = !run;
+    delay(300); // debounce
 
-  //   if (!run) {
-  //     currentTask = 1;
-  //     lMotor.stop();
-  //     rMotor.stop();
-  //     lMotor.setCurrentPosition(0);
-  //     rMotor.setCurrentPosition(0);
-  //   }
-  // }
-
-  // lastButtonState = currentButtonState;
-
-  bool reading = digitalRead(buttonPin);
-
-    if (reading == !lastButtonState) {
-        lastDebounceTime = millis();
+    if (!run) {
+      currentTask = 1;
+      lMotor.stop();
+      rMotor.stop();
+      lMotor.setCurrentPosition(0);
+      rMotor.setCurrentPosition(0);
     }
+  }
 
-    if ((millis() - lastDebounceTime) > debounceDelay) {
-
-        if (reading == !currentState) {
-            currentState = reading;
-
-            if (currentState == LOW) {
-                toggleState =! toggleState;
-                if (toggleState == true) {
-                  run = true;
-                  Serial.println(run);
-                } else {
-                  currentTask = 1;
-                  lMotor.stop();
-                  rMotor.stop();
-                  lMotor.setCurrentPosition(0);
-                  rMotor.setCurrentPosition(0);
-                  Serial.println(run);
-                }
-            }
-        }
-    }
-
-    lastButtonState = reading;
+  lastButtonState = currentButtonState;
 }
-
-
 bool run_until_done() {
   while ((l_dl() != 0) || (r_dl() != 0)) {
     check_button();
@@ -309,12 +260,6 @@ bool run_until_done() {
   return true;
 }
 void finish_task(int nextTask) {
-  cases = String("case ");
-  casenum = String();
-  casenum = cases + currentTask ;
-
-  dbug(casenum);
-  
   if (run_until_done()) {
     currentTask = nextTask;
   }
@@ -329,30 +274,25 @@ void loop() {
     switch (currentTask) {
       
       case 1:
-        targetDistance(23,700,100,0);
+        back_servo(85);/////lower back servo
+        targetDistance(18,700,100,0);
         finish_task(2);
         
         break;
         
       case 2:
-        turn(93);
+        turn(89);///turn left
         finish_task(3);
-        
         break;
       case 3:
         //Serial.println((String(millis())));
-        
+        dbug("case 1");
         // OLD (disables outputs before movement):
-        // rMotor.disableOutputs();
-        // lMotor.disableOutputs();
-        // rMotor.enableOutputs();
-        // lMotor.enableOutputs();
+        
 
 
-        // lMotor.setCurrentPosition(0);
-        // rMotor.setCurrentPosition(0);
-       back_servo(85);
-       targetDistance(-1000,700,100,0);////////going to bowl
+
+       targetDistance(-980,700,100,0);////////going to bowl
 
        finish_task(4);
         
@@ -361,21 +301,23 @@ void loop() {
         // lMotor.enableOutputs();
         // rMotor.enableOutputs();
 
-        
+
         
         Serial.println((String(millis())));
         break;
       case 4:
         turn(-183);////////catching onto the bowl
+
         finish_task(5);
         break;
 
       case 5:
-        
+        Serial.println("case 3");
         targetDistance(565, 700, 100, 0);
         finish_task(6);
         break;
       case 6:
+        Serial.println("case 4");
         turn(-90);
 
 
@@ -383,38 +325,37 @@ void loop() {
         break;
 
 
-      case 7://///////pushing the bowl in the parking lot to align with blue place
-       
-       targetDistance(-21,700,100,0);
+      case 7://///////pushing the bowl in the parking lot also align with blue place
+       targetDistance(-260,700,100,0);
        finish_task(8);
         break;
       case 8:
-        
-        turn(30);
+        turn(30);// to not catch onto the bowl
         finish_task(9);
         break;
       case 9: 
        targetDistance(60,700,100,0);
-        back_servo(140);
-        delay(100);
-        finish_task(10);
+        Serial.println("case 6");
+        back_servo(120);
+       delay(100);
+        currentTask = 10;
         break;      
       case 10:
-        turn(-120);
+        turn(-120);/////turn right to face blue
         finish_task(11);
 
         break;
       case 11:
-        targetDistance(-326,700,100,0);//////going to blue
+        targetDistance(-348,700,100,0);//////going to blue
         finish_task(12);
         break;
       case 12:
-        back_servo(85);
+        back_servo(85);/////lower onto blue
         delay(100);
         finish_task(13);
         break;
       case 13:
-        turn(-60);
+        turn(-60);///scoop up blue
         finish_task(14); 
         break;
       case 14:
@@ -422,48 +363,48 @@ void loop() {
         finish_task(15);
         break;
       case 15:
-        turn(-30);
+        turn(-32);
         
         finish_task(16);
         break;
       case 16:
-        finish_task(17);
+        currentTask = 17;
         break;
       case 17:
-        targetDistance(-458,700,100,0);
+        targetDistance(-458,700,100,0);//// travel along the sticks to the shovel
         finish_task(18);
         break;
       case 18:
-        turn(-90);
+        turn(-91);
         finish_task(19);
         break;
       case 19:
-        targetDistance(-1300,700,100,0);///////////////going along the parts
+        targetDistance(-1300,700,100,0);///////////////going along the shovel, trowel
         finish_task(20);
         break;
       case 20:
-        turn(-91);
+        turn(-91);////turn right 
         finish_task(21);
         break;
       case 21:
-        targetDistance(-420,700,100,0);
+        targetDistance(-420,700,100,0);//going along the blocks
         finish_task(22);
         break;
       case 22:
-        finish_task(23);
-        break;
+         finish_task(23);
+
       case 23:
-        turn(-90);
+        turn(-90);///turn to face blue placing box
         finish_task(24);
         break;
       case 24://going blue placing
-        targetDistance(-224,700,100,0);
+        targetDistance(-240,700,100,0);
         finish_task(25);
         break; 
       case 25:
-        back_servo(140);
+        back_servo(120);
         delay(100);
-        finish_task(26);
+        currentTask = 26;
         break;
       case 26:
         finish_task(27);
@@ -471,7 +412,7 @@ void loop() {
       case 27:
     
       
-        finish_task(28);
+        currentTask = 28;
         break;
       case 28://////leaving blue
         targetDistance(150,700,100,0);
@@ -485,32 +426,32 @@ void loop() {
         finish_task(31);
         break; 
       case 31:
-        targetDistance(500,600,100,0);
+        targetDistance(500,600,100,0);////travel to the edge of the map
         finish_task(32);
         break;
 
       case 32:
-        turn(-91);
+        turn(-91);///face trowel
         finish_task(33);
         break;
       case 33:
         // targetDistance(-110,600,100,0);
         finish_task(34);
         break;
-      case 34://////////lower on to cement thing
+      case 34://////////lower on to cement trwoel thing
         back_servo(85);
         delay(200);
-        finish_task(35);
+        currentTask = 35;
         break;
       case 35:
-        targetDistance(340,600,100,0);
+        targetDistance(340,600,100,0);///drag it back
         finish_task(36);
         break;
 
       case 36:
-       back_servo(140);////lift up
+       back_servo(120);////lift up
         delay(10);
-        finish_task(37);
+        currentTask = 37;
         break; 
       case 37:
         
@@ -524,17 +465,16 @@ void loop() {
       case 39:
         targetDistance(-150,700,100,0);
         finish_task(40);
-        break;
       case 40:
         turn(-90);
         finish_task(41);
         break;
       case 41:
-        targetDistance(-1698,700,120,0);///////////////going along the side heaidng to green
+        targetDistance(-1698,700,120,0);///////////////going along the trowel and shovel heaidng to green
         finish_task(42);
         break;
       case 42:
-        turn(90);
+        turn(90);//turn left
         finish_task(43);
         break;
         
@@ -544,7 +484,7 @@ void loop() {
         break;
 
       case 44:
-        turn(-90);
+        turn(-90);//turn right to face green
         finish_task(45);
         break;
       case 45:
@@ -554,19 +494,19 @@ void loop() {
       case 46:
         back_servo(85);
         delay(100);
-        finish_task(47);
+        currentTask = 47;
         delay(50);
         break;
       case 47:
-        turn(-180);
+        turn(-180);///spin around
         finish_task(48);
         break;
       case 48:
-        targetDistance(-555,600,100,0);////pushing green
+        targetDistance(-555,600,100,0);////pushing green to box
         finish_task(49);
         break;
       case 49:
-        back_servo(150);
+        back_servo(120);
         targetDistance(450,600,100,0);
         finish_task(50);
         break;
@@ -578,7 +518,7 @@ void loop() {
         break;
       case 51:
       
-        turn(-90);
+        turn(-90);//turn right
         finish_task(52);
         break;
 
@@ -592,11 +532,11 @@ void loop() {
         finish_task(54);
         break;
       case 54:
-        turn(-90);
+        turn(-90);///turn right to face yellow
         finish_task(55);
         break;
       case 55:
-       targetDistance(-120,700,100,0);
+       targetDistance(-120,700,100,0);////going to yellow
         // targetDistance(-221,650,150,0);///////going yellow
         finish_task(56);
         
@@ -604,14 +544,14 @@ void loop() {
       case 56:
         back_servo(85);
         delay(50);
-        finish_task(57);
+        currentTask = 57;
         break;
       case 57:
-        turn(-90);
+        turn(-90);//turn right 
         finish_task(58);
         break;
       case 58:
-        targetDistance(-715,650,150,0);//////along stiucks
+        targetDistance(-715,650,150,0);//////travel on top of the empty boxes
         finish_task(59);
         break;
       case 59:
@@ -619,7 +559,7 @@ void loop() {
         finish_task(60);
         break;
       case 60:
-        targetDistance(-900,600,150,0);
+        targetDistance(-900,600,150,0);////along trwowl
         finish_task(61);
         break;
       case 61:
@@ -635,26 +575,43 @@ void loop() {
         finish_task(64);
         break ;
       case 64:
-        back_servo(150);
-        targetDistance(190,600,150,0);
+        back_servo(120);
+        targetDistance(220,600,150,0);///aligning with shovel
         finish_task(65);
         break;
       case 65:
-        turn(-90);////////turning. to face bowl
+        turn(-90);////////turning right
         finish_task(66);
         break ;
-      case 66:
-        back_servo(85);
-        targetDistance(-390,600,100,0);
+      case 66: 
+       
+        targetDistance(-540,600,100,0);/////going to shovel
         finish_task(67);
         break ;
       case 67:
-        turn(-180);
+        back_servo(85);//////get shovel
+        delay(70);
         finish_task(68);
         break;
       case 68:
-        targetDistance(-1250,700,100,0);
+        targetDistance(750,700,100,0);
         finish_task(69);
+        break;
+      case 69:
+        turn(-45);///turn to avoid thing
+        finish_task(70);
+        break;
+      case 70:
+        targetDistance(70,700,100,0);
+        finish_task(71);
+        break;
+      case 71:
+        turn(45);
+        finish_task(72);
+        break;
+      case 72:
+        targetDistance(320,700,100,0);////heading to the starting box
+        finish_task(73);
         break;
       
       } 
