@@ -63,13 +63,13 @@ constexpr float DISTANCE_SCALE = 1.0000f;
 // If the robot consistently curves right, reduce LEFT_STRAIGHT_TRIM slightly
 // or increase RIGHT_STRAIGHT_TRIM slightly. Change only 0.002-0.005 at a time.
 constexpr float LEFT_STRAIGHT_TRIM  = 1.0000f;
-constexpr float RIGHT_STRAIGHT_TRIM = 1.0000f;
+constexpr float RIGHT_STRAIGHT_TRIM = 0.997f;
 
 // Separate turn calibration because left and right turns can differ under load.
 // Example: commanded 90 degrees but turns 87 degrees -> 90 / 87 = 1.0345.//
 
-constexpr float LEFT_TURN_SCALE  = 1.025f;
-constexpr float RIGHT_TURN_SCALE = 1.025f;
+constexpr float LEFT_TURN_SCALE  = 1.0277f;
+constexpr float RIGHT_TURN_SCALE = 1.0277f;
 
 // Optional per-wheel turn trims. Normally leave these at 1.0000.
 constexpr float LEFT_WHEEL_TURN_TRIM  = 1.0000f;
