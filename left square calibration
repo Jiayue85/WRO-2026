@@ -1,0 +1,561 @@
+
+/*
+ 0.3.7 comp code v1
+  WRO robot consistency rewrite for RepRap RUMBA / Arduino Mega
+
+  Main fixes:
+  - Every command is started exactly once.
+  - Motor stepping is non-blocking, so run() is serviced continuously.
+  - Servo commands can no longer be silently skipped.
+  - No delay() calls occur while the program is running.
+  - Missing switch-case breaks and empty transition cases are removed.
+  - Step calculations are rounded instead of truncated.
+  - A settling period is added after every movement.
+  - Button debounce is non-blocking and deterministic.
+  - Step-driver pulse width is made safe for common A4988/DRV8825 drivers.
+  - Motion timeouts and clear debug reporting are included.
+  - Per-side calibration trims are available for straight-line correction.
+
+  IMPORTANT:
+  EFFECTIVE_STEPS_PER_WHEEL_REV must equal the number of STEP pulses needed
+  for one complete wheel revolution. Include microstepping and gearing.
+*/
+
+#include <AccelStepper.h>
+#include <Servo.h>
+#include <math.h>
+
+// -----------------------------------------------------------------------------
+// Pin configuration
+// -----------------------------------------------------------------------------
+constexpr uint8_t LEFT_STEP_PIN    = 17;
+constexpr uint8_t LEFT_DIR_PIN     = 16;
+constexpr uint8_t LEFT_ENABLE_PIN  = 48;
+
+constexpr uint8_t RIGHT_STEP_PIN   = 54;
+constexpr uint8_t RIGHT_DIR_PIN    = 47;
+constexpr uint8_t RIGHT_ENABLE_PIN = 55;
+
+constexpr uint8_t SERVO_PIN  = 5;
+constexpr uint8_t BUTTON_PIN = 37;
+
+AccelStepper leftMotor(AccelStepper::DRIVER, LEFT_STEP_PIN, LEFT_DIR_PIN);
+AccelStepper rightMotor(AccelStepper::DRIVER, RIGHT_STEP_PIN, RIGHT_DIR_PIN);
+Servo backServo;
+
+// -----------------------------------------------------------------------------
+// Mechanical calibration
+// -----------------------------------------------------------------------------
+constexpr float TRACK_WIDTH_MM       = 138.5f;  // wheel contact-centre to centre
+constexpr float WHEEL_DIAMETER_MM    = 88.0f;
+constexpr float WHEEL_CIRCUMFERENCE_MM = PI * WHEEL_DIAMETER_MM;
+
+// Number of driver STEP pulses for one complete wheel revolution.
+// Example: 200-step motor at 1/16 microstepping and no gearing = 3200.
+// Keep this at 200 only if one wheel revolution genuinely takes 200 pulses.
+constexpr float EFFECTIVE_STEPS_PER_WHEEL_REV = 200.0f;
+
+// Overall distance calibration.
+// Example: command 1000 mm, measure 970 mm -> set to 1000 / 970 = 1.0309.
+constexpr float DISTANCE_SCALE = 1.0000f;
+
+// Straight-line trims. Start both at 1.0000.
+// If the robot consistently curves right, reduce LEFT_STRAIGHT_TRIM slightly
+// or increase RIGHT_STRAIGHT_TRIM slightly. Change only 0.002-0.005 at a time.
+constexpr float LEFT_STRAIGHT_TRIM  = 1.0000f;
+constexpr float RIGHT_STRAIGHT_TRIM = 1.0000f;
+
+// Separate turn calibration because left and right turns can differ under load.
+// Example: commanded 90 degrees but turns 87 degrees -> 90 / 87 = 1.0345.//
+
+constexpr float LEFT_TURN_SCALE  = 1.03f;
+constexpr float RIGHT_TURN_SCALE = 1.03f;
+
+// Optional per-wheel turn trims. Normally leave these at 1.0000.
+constexpr float LEFT_WHEEL_TURN_TRIM  = 1.0000f;
+constexpr float RIGHT_WHEEL_TURN_TRIM = 1.0000f;
+
+// -----------------------------------------------------------------------------
+// Timing and reliability settings
+// -----------------------------------------------------------------------------
+constexpr bool DEBUG_ENABLED = true;
+constexpr unsigned long BUTTON_DEBOUNCE_MS = 40;
+constexpr unsigned long MOVE_SETTLE_MS      = 100;
+constexpr unsigned long TURN_SETTLE_MS      = 100;
+constexpr unsigned long SERVO_STARTUP_MS    = 400;
+constexpr uint8_t DRIVER_MIN_PULSE_US        = 4;
+constexpr int SERVO_START_ANGLE              = 120;
+
+
+
+constexpr uint16_t SERVO_FLAT = 50;
+constexpr uint16_t SERVO_UP = 120;
+
+
+// -----------------------------------------------------------------------------
+// Program command definitions
+// -----------------------------------------------------------------------------
+enum CommandType : uint8_t {
+  CMD_MOVE_MM,
+  CMD_TURN_DEG,
+  CMD_SERVO,
+  CMD_WAIT,
+  CMD_END
+};
+
+struct Command {
+  CommandType type;
+  float value;                 // distance, angle, servo angle, or wait time
+  uint16_t maxSpeed;           // steps/second for movement commands
+  uint16_t acceleration;       // steps/second^2 for movement commands
+  uint16_t settleAfterMs;      // wait after motor target is reached
+};
+
+#define MOVE_CMD(mm, speedValue, accelValue) \
+  { CMD_MOVE_MM, (mm), (speedValue), (accelValue), MOVE_SETTLE_MS }
+
+#define TURN_CMD(degreesValue) \
+  { CMD_TURN_DEG, (degreesValue), 500, 100, TURN_SETTLE_MS }
+
+#define SERVO_CMD(angleValue, waitValue) \
+  { CMD_SERVO, (angleValue), 0, 0, (waitValue) }
+
+#define WAIT_CMD(waitValue) \
+  { CMD_WAIT, (waitValue), 0, 0, 0 }
+
+#define END_CMD \
+  { CMD_END, 0, 0, 0, 0 }
+
+// The route below preserves the movement order and values from the uploaded code.
+// Empty cases have been removed and accidental case fall-throughs are now explicit.
+const Command PROGRAM[] = {
+  ////turn left to make square
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+  MOVE_CMD(   700, 700, 100), 
+  TURN_CMD(   90),
+
+
+  END_CMD
+};
+
+constexpr size_t PROGRAM_LENGTH = sizeof(PROGRAM) / sizeof(PROGRAM[0]);
+
+// -----------------------------------------------------------------------------
+// Runtime state
+// -----------------------------------------------------------------------------
+bool programRunning = false;
+bool commandActive  = false;
+bool motionSettling = false;
+bool alternateMotorOrder = false;
+
+size_t commandIndex = 0;
+unsigned long commandStartMs = 0;
+unsigned long settleStartMs  = 0;
+unsigned long currentMotionTimeoutMs = 0;
+
+bool lastRawButtonState = HIGH;
+bool stableButtonState  = HIGH;
+unsigned long buttonLastChangedMs = 0;
+
+// -----------------------------------------------------------------------------
+// Debug helpers -- no dynamic String allocation
+// -----------------------------------------------------------------------------
+void debugText(const __FlashStringHelper *text) {
+  if (DEBUG_ENABLED) {
+    Serial.println(text);
+  }
+}
+
+void debugCommandStart(const Command &command) {
+  if (!DEBUG_ENABLED) {
+    return;
+  }
+
+  Serial.print(F("Command "));
+  Serial.print(commandIndex);
+  Serial.print(F(": "));
+
+  switch (command.type) {
+    case CMD_MOVE_MM:
+      Serial.print(F("move "));
+      Serial.print(command.value, 1);
+      Serial.println(F(" mm"));
+      break;
+
+    case CMD_TURN_DEG:
+      Serial.print(F("turn "));
+      Serial.print(command.value, 1);
+      Serial.println(F(" deg"));
+      break;
+
+    case CMD_SERVO:
+      Serial.print(F("servo "));
+      Serial.println(command.value, 0);
+      break;
+
+    case CMD_WAIT:
+      Serial.print(F("wait "));
+      Serial.print(command.value, 0);
+      Serial.println(F(" ms"));
+      break;
+
+    case CMD_END:
+      Serial.println(F("end"));
+      break;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Step calculations
+// -----------------------------------------------------------------------------
+long stepsForDistanceMm(float distanceMm) {
+  const float revolutions = distanceMm / WHEEL_CIRCUMFERENCE_MM;
+  const float steps = revolutions * EFFECTIVE_STEPS_PER_WHEEL_REV * DISTANCE_SCALE;
+  return lroundf(steps);
+}
+
+long stepsForPointTurn(float degrees) {
+  // Each wheel travels an arc of:
+  // PI * trackWidth * degrees / 360
+  // Dividing by PI * wheelDiameter cancels PI.
+  const float scale = (degrees >= 0.0f) ? LEFT_TURN_SCALE : RIGHT_TURN_SCALE;
+  const float steps = (TRACK_WIDTH_MM * fabsf(degrees) / (360.0f * WHEEL_DIAMETER_MM))
+                    * EFFECTIVE_STEPS_PER_WHEEL_REV
+                    * scale;
+  return lroundf(steps);
+}
+
+// -----------------------------------------------------------------------------
+// Motor control
+// -----------------------------------------------------------------------------
+void serviceMotors() {
+  // Alternating call order removes the tiny fixed timing bias caused by always
+  // servicing one motor first.
+  if (alternateMotorOrder) {
+    leftMotor.run();
+    rightMotor.run();
+  } else {
+    rightMotor.run();
+    leftMotor.run();
+  }
+
+  alternateMotorOrder = !alternateMotorOrder;
+}
+
+unsigned long estimateMotionTimeoutMs(long leftSteps,
+                                      long rightSteps,
+                                      float maxSpeed,
+                                      float acceleration) {
+  const float largestMove = (float)max(labs(leftSteps), labs(rightSteps));
+  const float safeSpeed = max(maxSpeed, 1.0f);
+  const float safeAcceleration = max(acceleration, 1.0f);
+
+  // Deliberately conservative estimate. It covers acceleration, deceleration,
+  // low effective speed on short moves, and normal loop jitter.
+  const float estimatedSeconds =
+      (largestMove / safeSpeed)
+      + (2.0f * safeSpeed / safeAcceleration)
+      + 4.0f;
+
+  unsigned long timeout = (unsigned long)(estimatedSeconds * 2000.0f);
+  timeout = constrain(timeout, 6000UL, 120000UL);
+  return timeout;
+}
+
+void beginRelativeMotion(long leftSteps,
+                         long rightSteps,
+                         uint16_t maxSpeed,
+                         uint16_t acceleration) {
+  leftMotor.setMaxSpeed((float)maxSpeed);
+  rightMotor.setMaxSpeed((float)maxSpeed);
+  leftMotor.setAcceleration((float)acceleration);
+  rightMotor.setAcceleration((float)acceleration);
+
+  // moveTo() with explicit targets avoids accidentally stacking relative moves.
+  const long leftTarget  = leftMotor.currentPosition()  + leftSteps;
+  const long rightTarget = rightMotor.currentPosition() + rightSteps;
+
+  leftMotor.moveTo(leftTarget);
+  rightMotor.moveTo(rightTarget);
+
+  currentMotionTimeoutMs = estimateMotionTimeoutMs(
+      leftSteps, rightSteps, (float)maxSpeed, (float)acceleration);
+
+  commandStartMs = millis();
+  motionSettling = false;
+}
+
+void beginStraightMove(float distanceMm,
+                       uint16_t maxSpeed,
+                       uint16_t acceleration) {
+  const long baseSteps = stepsForDistanceMm(distanceMm);
+
+  // Existing robot direction convention:
+  // right positive + left negative = forward.
+  const long rightSteps = lroundf((float)baseSteps * RIGHT_STRAIGHT_TRIM);
+  const long leftSteps  = lroundf((float)-baseSteps * LEFT_STRAIGHT_TRIM);
+
+  beginRelativeMotion(leftSteps, rightSteps, maxSpeed, acceleration);
+}
+
+void beginPointTurn(float degrees,
+                    uint16_t maxSpeed,
+                    uint16_t acceleration) {
+  const long baseSteps = stepsForPointTurn(degrees);
+
+  // Preserves the original turn convention:
+  // positive degrees = left, negative degrees = right.
+  const long turnSign = (degrees >= 0.0f) ? 1L : -1L;
+
+  const long leftSteps = lroundf(
+      (float)(turnSign * baseSteps) * LEFT_WHEEL_TURN_TRIM);
+  const long rightSteps = lroundf(
+      (float)(turnSign * baseSteps) * RIGHT_WHEEL_TURN_TRIM);
+
+  beginRelativeMotion(leftSteps, rightSteps, maxSpeed, acceleration);
+}
+
+bool motorsReachedTarget() {
+  return leftMotor.distanceToGo() == 0 && rightMotor.distanceToGo() == 0;
+}
+
+void stopMotorsImmediately() {
+  // AccelStepper::stop() requests a decelerated stop and still needs run().
+  // For an operator stop, clear both targets immediately and reset speed.
+  const long leftHere = leftMotor.currentPosition();
+  const long rightHere = rightMotor.currentPosition();
+
+  leftMotor.setCurrentPosition(leftHere);
+  rightMotor.setCurrentPosition(rightHere);
+}
+
+// -----------------------------------------------------------------------------
+// Program control
+// -----------------------------------------------------------------------------
+void finishCurrentCommand() {
+  commandActive = false;
+  motionSettling = false;
+  ++commandIndex;
+}
+
+void stopProgram(bool completed) {
+  stopMotorsImmediately();
+  programRunning = false;
+  commandActive = false;
+  motionSettling = false;
+
+  if (completed) {
+    debugText(F("Program completed."));
+  } else {
+    debugText(F("Program stopped. Press the button to restart from command 0."));
+  }
+
+  commandIndex = 0;
+}
+
+void startProgram() {
+  stopMotorsImmediately();
+  leftMotor.enableOutputs();
+  rightMotor.enableOutputs();
+
+  commandIndex = 0;
+  commandActive = false;
+  motionSettling = false;
+  programRunning = true;
+
+  debugText(F("Program started."));
+}
+
+void startCurrentCommand() {
+  if (commandIndex >= PROGRAM_LENGTH) {
+    stopProgram(true);
+    return;
+  }
+
+  const Command &command = PROGRAM[commandIndex];
+  debugCommandStart(command);
+
+  commandActive = true;
+  commandStartMs = millis();
+  motionSettling = false;
+
+  switch (command.type) {
+    case CMD_MOVE_MM:
+      beginStraightMove(
+          command.value, command.maxSpeed, command.acceleration);
+      break;
+
+    case CMD_TURN_DEG:
+      beginPointTurn(
+          command.value, command.maxSpeed, command.acceleration);
+      break;
+
+    case CMD_SERVO: {
+      int angle = constrain((int)lroundf(command.value), 0, 180);
+      backServo.write(angle);  // Always executes; it is never timing-gated.
+      break;
+    }
+
+    case CMD_WAIT:
+      break;
+
+    case CMD_END:
+      stopProgram(true);
+      break;
+  }
+}
+
+void updateCurrentCommand() {
+  if (!programRunning) {
+    return;
+  }
+
+  if (!commandActive) {
+    startCurrentCommand();
+    return;
+  }
+
+  const Command &command = PROGRAM[commandIndex];
+  const unsigned long now = millis();
+
+  switch (command.type) {
+    case CMD_MOVE_MM:
+    case CMD_TURN_DEG:
+      serviceMotors();
+
+      if (motorsReachedTarget()) {
+        if (!motionSettling) {
+          motionSettling = true;
+          settleStartMs = now;
+        } else if (now - settleStartMs >= command.settleAfterMs) {
+          finishCurrentCommand();
+        }
+      } else if (now - commandStartMs > currentMotionTimeoutMs) {
+        debugText(F("ERROR: motion timeout. Program stopped."));
+        stopProgram(false);
+      }
+      break;
+
+    case CMD_SERVO:
+      if (now - commandStartMs >= command.settleAfterMs) {
+        finishCurrentCommand();
+      }
+      break;
+
+    case CMD_WAIT:
+      if (now - commandStartMs >= (unsigned long)command.value) {
+        finishCurrentCommand();
+      }
+      break;
+
+    case CMD_END:
+      stopProgram(true);
+      break;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Button handling
+// -----------------------------------------------------------------------------
+void updateButton() {
+  const bool rawState = digitalRead(BUTTON_PIN);
+  const unsigned long now = millis();
+
+  if (rawState != lastRawButtonState) {
+    lastRawButtonState = rawState;
+    buttonLastChangedMs = now;
+  }
+
+  if ((now - buttonLastChangedMs >= BUTTON_DEBOUNCE_MS)
+      && rawState != stableButtonState) {
+    stableButtonState = rawState;
+
+    // Act only on the press edge, not the release edge.
+    if (stableButtonState == LOW) {
+      if (programRunning) {
+        stopProgram(false);
+      } else {
+        startProgram();
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Arduino setup and loop
+// -----------------------------------------------------------------------------
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  leftMotor.setEnablePin(LEFT_ENABLE_PIN);
+  rightMotor.setEnablePin(RIGHT_ENABLE_PIN);
+
+  // Third argument inverts the active-low enable pins used by common drivers.
+  leftMotor.setPinsInverted(false, false, true);
+  rightMotor.setPinsInverted(false, false, true);
+
+  leftMotor.setMinPulseWidth(DRIVER_MIN_PULSE_US);
+  rightMotor.setMinPulseWidth(DRIVER_MIN_PULSE_US);
+
+  leftMotor.enableOutputs();
+  rightMotor.enableOutputs();
+
+  leftMotor.setCurrentPosition(0);
+  rightMotor.setCurrentPosition(0);
+
+  backServo.attach(SERVO_PIN);
+  backServo.write(SERVO_START_ANGLE);
+  delay(SERVO_STARTUP_MS);  // Setup-only delay; motors are not running yet.
+
+  lastRawButtonState = digitalRead(BUTTON_PIN);
+  stableButtonState = lastRawButtonState;
+  buttonLastChangedMs = millis();
+
+  debugText(F("Ready. Press the button to start."));
+}
+
+void loop() {
+  updateButton();
+  updateCurrentCommand();
+}
