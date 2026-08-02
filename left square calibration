@@ -63,13 +63,13 @@ constexpr float DISTANCE_SCALE = 1.0000f;
 // If the robot consistently curves right, reduce LEFT_STRAIGHT_TRIM slightly
 // or increase RIGHT_STRAIGHT_TRIM slightly. Change only 0.002-0.005 at a time.
 constexpr float LEFT_STRAIGHT_TRIM  = 1.0000f;
-constexpr float RIGHT_STRAIGHT_TRIM = 1.0000f;
+constexpr float RIGHT_STRAIGHT_TRIM = 0.997f;
 
 // Separate turn calibration because left and right turns can differ under load.
 // Example: commanded 90 degrees but turns 87 degrees -> 90 / 87 = 1.0345.//
 
-constexpr float LEFT_TURN_SCALE  = 1.03f;
-constexpr float RIGHT_TURN_SCALE = 1.03f;
+constexpr float LEFT_TURN_SCALE  = 1.027f;
+constexpr float RIGHT_TURN_SCALE = 1.027f;
 
 // Optional per-wheel turn trims. Normally leave these at 1.0000.
 constexpr float LEFT_WHEEL_TURN_TRIM  = 1.0000f;
@@ -130,6 +130,8 @@ struct Command {
 // Empty cases have been removed and accidental case fall-throughs are now explicit.
 const Command PROGRAM[] = {
   ////turn left to make square
+  MOVE_CMD(20000,700,100),
+  
   MOVE_CMD(   700, 700, 100), 
   TURN_CMD(   90),
   MOVE_CMD(   700, 700, 100), 
