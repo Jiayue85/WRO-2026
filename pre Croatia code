@@ -1,6 +1,6 @@
 
 /*
- v1 pre croatia
+ v2 pre croatia
   WRO robot consistency rewrite for RepRap RUMBA / Arduino Mega
 
   Main fixes:
@@ -63,13 +63,13 @@ constexpr float DISTANCE_SCALE = 1.0000f;
 // If the robot consistently curves right, reduce LEFT_STRAIGHT_TRIM slightly
 // or increase RIGHT_STRAIGHT_TRIM slightly. Change only 0.002-0.005 at a time.
 constexpr float LEFT_STRAIGHT_TRIM  = 1.0000f;
-constexpr float RIGHT_STRAIGHT_TRIM = 0.997f;
+constexpr float RIGHT_STRAIGHT_TRIM = 0.9935f;
 
 // Separate turn calibration because left and right turns can differ under load.
 // Example: commanded 90 degrees but turns 87 degrees -> 90 / 87 = 1.0345.//
 
-constexpr float LEFT_TURN_SCALE  = 1.0277f;
-constexpr float RIGHT_TURN_SCALE = 1.0277f;
+constexpr float LEFT_TURN_SCALE  = 1.027f;
+constexpr float RIGHT_TURN_SCALE = 1.027f;
 
 // Optional per-wheel turn trims. Normally leave these at 1.0000.
 constexpr float LEFT_WHEEL_TURN_TRIM  = 1.0000f;
@@ -88,7 +88,7 @@ constexpr int SERVO_START_ANGLE              = 120;
 
 
 
-constexpr uint16_t SERVO_FLAT = 50;
+constexpr uint16_t SERVO_FLAT = 54;
 constexpr uint16_t SERVO_UP = 120;
 
 
@@ -130,16 +130,16 @@ struct Command {
 // Empty cases have been removed and accidental case fall-throughs are now explicit.
 const Command PROGRAM[] = {
   
-  MOVE_CMD(   39, 700, 100), 
+  MOVE_CMD(   32, 700, 100), 
   TURN_CMD(   90),
 
 
   SERVO_CMD(  SERVO_FLAT, 180),
   MOVE_CMD( -985, 700, 100),////traveling towards the bowl
-  TURN_CMD( -180),
+  TURN_CMD( -184),
   MOVE_CMD(  585, 700, 100),////going to parking lot
   TURN_CMD(  -90),
-  MOVE_CMD( -249, 700, 100),///aligning tiself in parking lot
+  MOVE_CMD( -235, 700, 100),///aligning tiself in parking lot//-249
   TURN_CMD(   30),
   MOVE_CMD(   30, 700, 100),
 
@@ -149,7 +149,8 @@ const Command PROGRAM[] = {
   SERVO_CMD(  SERVO_FLAT, 180),
   TURN_CMD(  -60),///scoop up blue
   MOVE_CMD(  305, 700, 100),
-  TURN_CMD(  -30),
+  TURN_CMD(  -37),
+
   MOVE_CMD( -455, 700, 100),////going towards the edge of the board,
   TURN_CMD(  -90),
   MOVE_CMD(-1300, 700, 100),
