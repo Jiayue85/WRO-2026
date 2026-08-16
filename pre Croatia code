@@ -1,6 +1,6 @@
 
 /*
- v5 pre croatia
+ v6 pre croatia
   WRO robot consistency rewrite for RepRap RUMBA / Arduino Mega
 
   Main fixes:
@@ -172,82 +172,84 @@ struct Command {
 // = travel in the negative MOVE_CMD direction until the sensor reads 300 mm or less.
 const Command PROGRAM[] = {
   SENSOR_MOVE_CMD(300,700,100),
+ 
+  MOVE_CMD(   26, 700, 40), ////32
+  TURN_CMD(   89),
+
+
+  SERVO_CMD(  SERVO_FLAT, 180),
+  MOVE_CMD( -980, 700, 100),////traveling towards the bowl
+  TURN_CMD( -182),
+  MOVE_CMD(  605, 700, 100),////going to parking lot
+  TURN_CMD(  -91),
+  MOVE_CMD( -230, 700, 100),///aligning tiself in parking lot//-249
+  TURN_CMD(   30),
+  MOVE_CMD(   30, 700, 100),
+
+  SERVO_CMD( SERVO_UP, 180),
+  TURN_CMD( -120),
+  MOVE_CMD( -302, 700, 100),/////go to blue
+  SERVO_CMD(  SERVO_FLAT, 180),
+  TURN_CMD(  -60),///scoop up blue
+  MOVE_CMD(  305, 700, 100),
+  TURN_CMD(  -29),
+
+  MOVE_CMD( -460, 700, 100),////going towards the edge of the board,
+  TURN_CMD(  -90),
+  MOVE_CMD(-1300, 700, 100),
+  TURN_CMD(  -90),
+  MOVE_CMD( -420, 700, 100),/////along block
+  TURN_CMD(  -90),
+  MOVE_CMD( -234, 700, 100),////going to bluw plCING
+
+  SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD(  170, 700, 100),
+  TURN_CMD(   90),
+  MOVE_CMD(  520, 600, 100),////going to edge of the map for concrete thong
+  TURN_CMD(  -90),
+
+  SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
+  MOVE_CMD(  340, 600, 100),//drag back
+  SERVO_CMD( SERVO_UP, 150),
+  TURN_CMD(   90),
+  MOVE_CMD( -130, 700, 100),
+  TURN_CMD(  -90),
+  MOVE_CMD(-1670, 700, 120),///along the all the parts
+  TURN_CMD(   90),
+  MOVE_CMD( -460, 700, 120),////trvaling up to greeb
+  TURN_CMD(  -90),
+
+  SERVO_CMD(  SERVO_FLAT, 180),////lower onto green
+  TURN_CMD( -185),
+  MOVE_CMD( -555, 600, 100),
+  TURN_CMD( 5),
+  SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD(  450, 600, 100),
+  TURN_CMD(  -90),
+  MOVE_CMD( -212, 600, 100),
+  TURN_CMD(  -90),
+  MOVE_CMD( -120, 700, 100),
+
+  SERVO_CMD(  SERVO_FLAT, 150),
+  TURN_CMD(  -90),
+  MOVE_CMD( -715, 650, 150),
+  TURN_CMD(  -90),
+  MOVE_CMD( -900, 600, 150),
+  TURN_CMD(  -90),
+  MOVE_CMD( -160, 600, 150),
+
+  SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD(  220, 600, 150),
+  TURN_CMD(  -90),
+  MOVE_CMD( -540, 600, 100),
+  SERVO_CMD(  SERVO_FLAT, 180),
+  MOVE_CMD(  750, 700, 100),
+  TURN_CMD(  -45),
+  MOVE_CMD(   70, 700, 100),
+  TURN_CMD(   45),
+  MOVE_CMD(  320, 700, 100),
+
   END_CMD
-  // MOVE_CMD(   15, 700, 24), ////32
-  // TURN_CMD(   89),
-
-
-  // SERVO_CMD(  SERVO_FLAT, 180),
-  // MOVE_CMD( -980, 700, 100),////traveling towards the bowl
-  // TURN_CMD( -182),
-  // MOVE_CMD(  605, 700, 100),////going to parking lot
-  // TURN_CMD(  -91),
-  // MOVE_CMD( -230, 700, 100),///aligning tiself in parking lot//-249
-  // TURN_CMD(   30),
-  // MOVE_CMD(   30, 700, 100),
-
-  // SERVO_CMD( SERVO_UP, 180),
-  // TURN_CMD( -120),
-  // MOVE_CMD( -302, 700, 100),/////go to blue
-  // SERVO_CMD(  SERVO_FLAT, 180),
-  // TURN_CMD(  -60),///scoop up blue
-  // MOVE_CMD(  305, 700, 100),
-  // TURN_CMD(  -30),
-
-  // MOVE_CMD( -460, 700, 100),////going towards the edge of the board,
-  // TURN_CMD(  -90),
-  // MOVE_CMD(-1300, 700, 100),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -420, 700, 100),/////along block
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -234, 700, 100),////going to bluw plCING
-
-  // SERVO_CMD( SERVO_UP, 180),
-  // MOVE_CMD(  170, 700, 100),
-  // TURN_CMD(   90),
-  // MOVE_CMD(  520, 600, 100),////going to edge of the map for concrete thong
-  // TURN_CMD(  -90),
-
-  // SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
-  // MOVE_CMD(  340, 600, 100),//drag back
-  // SERVO_CMD( SERVO_UP, 150),
-  // TURN_CMD(   90),
-  // MOVE_CMD( -130, 700, 100),
-  // TURN_CMD(  -90),
-  // MOVE_CMD(-1670, 700, 120),///along the all the parts
-  // TURN_CMD(   90),
-  // MOVE_CMD( -460, 700, 120),////trvaling up to greeb
-  // TURN_CMD(  -90),
-
-  // SERVO_CMD(  SERVO_FLAT, 180),////lower onto green
-  // TURN_CMD( -185),
-  // MOVE_CMD( -555, 600, 100),
-  // TURN_CMD( 5),
-  // SERVO_CMD( SERVO_UP, 180),
-  // MOVE_CMD(  450, 600, 100),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -212, 600, 100),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -120, 700, 100),
-
-  // SERVO_CMD(  SERVO_FLAT, 150),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -715, 650, 150),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -900, 600, 150),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -160, 600, 150),
-
-  // SERVO_CMD( SERVO_UP, 180),
-  // MOVE_CMD(  220, 600, 150),
-  // TURN_CMD(  -90),
-  // MOVE_CMD( -540, 600, 100),
-  // SERVO_CMD(  SERVO_FLAT, 180),
-  // MOVE_CMD(  750, 700, 100),
-  // TURN_CMD(  -45),
-  // MOVE_CMD(   70, 700, 100),
-  // TURN_CMD(   45),
-  // MOVE_CMD(  320, 700, 100),
 
 
 };
