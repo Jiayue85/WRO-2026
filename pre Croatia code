@@ -1,6 +1,6 @@
 
 /*
- v8 pre croatia
+ v9 pre croatia
   WRO robot consistency rewrite for RepRap RUMBA / Arduino Mega
 
   Main fixes:
@@ -174,7 +174,7 @@ const Command PROGRAM[] = {
 
  
   MOVE_CMD(   24, 700, 40), ////32
-  TURN_CMD(   90),
+  TURN_CMD(   89),
 
 
   SERVO_CMD(  SERVO_FLAT, 180),
@@ -188,7 +188,7 @@ const Command PROGRAM[] = {
 
   SERVO_CMD( SERVO_UP, 180),
   TURN_CMD( -120),
-  MOVE_CMD( -304, 700, 100),/////go to blue
+  MOVE_CMD( -339, 700, 100),/////go to blue
   SERVO_CMD(  SERVO_FLAT, 180),
   TURN_CMD(  -60),///scoop up blue
   MOVE_CMD(  305, 700, 100),
@@ -200,9 +200,11 @@ const Command PROGRAM[] = {
   TURN_CMD(  -90),
   MOVE_CMD( -450, 700, 100),/////along block
   TURN_CMD(  -90),
-  MOVE_CMD( -234, 700, 100),////going to blue plCING
+  MOVE_CMD( -215, 700, 100),////going to blue plCING
 
   SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD(160,700,100),
+  SERVO_CMD(SERVO_FLAT,180)
   MOVE_CMD(  170, 700, 100),
   TURN_CMD(   90),
   MOVE_CMD(  520, 600, 100),////going to edge of the map for concrete thong
