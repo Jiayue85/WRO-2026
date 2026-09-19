@@ -1,5 +1,6 @@
 /*
-  WRO consistency v9 -- RUMBA / Arduino Mega, AccelStepper + Servo.
+  v11
+  WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
 
   DEFAULT: short diagnostic route, not the competition route.
   Confirm pins, direction, gearing and both drivers' microstep settings first.
@@ -137,60 +138,75 @@ Servo backServo;
 const Command FULL_ROUTE[] = {
 
  
-  MOVE_CMD(   24, 700, 40), ////32
-  TURN_CMD(   90),
+  MOVE_CMD(   34, 700, 40), ////32
+  TURN_CMD(   88),
 
 
   SERVO_CMD(  SERVO_FLAT, 180),
   MOVE_CMD( -975, 700, 100),////traveling towards the bowl
-  TURN_CMD( -182),
+  TURN_CMD( -179),
   MOVE_CMD(  615, 700, 100),////going to parking lot
-  TURN_CMD(  -91),
-  MOVE_CMD( -220, 700, 100),///aligning tiself in parking lot//-249
+  TURN_CMD(  -90),
+  MOVE_CMD( -239, 700, 100),///aligning tiself in parking lot//-249
   TURN_CMD(   30),
   MOVE_CMD(   30, 700, 100),
 
   SERVO_CMD( SERVO_UP, 180),
-  TURN_CMD( -120),
-  MOVE_CMD( -297, 700, 100),/////go to blue
+  TURN_CMD( -118),
+  MOVE_CMD( -280, 700, 100),/////go to blue
   SERVO_CMD(  SERVO_FLAT, 180),
   TURN_CMD(  -60),///scoop up blue
   MOVE_CMD(  305, 700, 100),
-  TURN_CMD(  -32),
+  TURN_CMD(  -30),
 
-  MOVE_CMD( -463, 700, 100),////going towards the edge of the board,
-  TURN_CMD(  -90),
+  MOVE_CMD( -470, 700, 100),////going towards the edge of the board,63
+  TURN_CMD(  -89),
   MOVE_CMD(-1300, 700, 100),
   TURN_CMD(  -90),
-  MOVE_CMD( -450, 700, 100),/////along block
+  MOVE_CMD( -350, 700, 100),/////along block
   TURN_CMD(  -90),
-  MOVE_CMD( -234, 700, 100),////going to blue plCING
+  MOVE_CMD( -134, 700, 100),////going to blue plCING
+ 
+ 
+  SERVO_CMD(SERVO_UP,100),
+  MOVE_CMD(170,700,100),
+  SERVO_CMD(SERVO_FLAT,70),
+  MOVE_CMD( -90,700,100),///push blue
 
-  SERVO_CMD( SERVO_UP, 180),
-  MOVE_CMD(  170, 700, 100),
+///////////////concrete
+  SERVO_CMD( SERVO_UP, 100),
+  MOVE_CMD(  100, 700, 100),
   TURN_CMD(   90),
   MOVE_CMD(  520, 600, 100),////going to edge of the map for concrete thong
   TURN_CMD(  -90),
 
+  MOVE_CMD(  -100, 600, 100),
   SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
-  MOVE_CMD(  340, 600, 100),//drag back
+  MOVE_CMD(  270, 600, 100),//drag back
   SERVO_CMD( SERVO_UP, 150),
   TURN_CMD(   90),
   MOVE_CMD( -130, 700, 100),
   TURN_CMD(  -90),
-  MOVE_CMD(-1670, 700, 120),///along the all the parts
+  /////////green sticks
+  MOVE_CMD(-1500, 700, 120),///along the all the parts
   TURN_CMD(   90),
   MOVE_CMD( -460, 700, 120),////trvaling up to greeb
   TURN_CMD(  -90),
+  MOVE_CMD(-140,700,100),
 
   SERVO_CMD(  SERVO_FLAT, 180),////lower onto green
-  TURN_CMD( -185),
-  MOVE_CMD( -555, 600, 100),
-  TURN_CMD( 5),
+  TURN_CMD( -180),//turn aroud
+  MOVE_CMD( -420, 600, 100),//520
+  
   SERVO_CMD( SERVO_UP, 180),
-  MOVE_CMD(  450, 600, 100),
+  MOVE_CMD( 100, 700,100),
+  SERVO_CMD(SERVO_FLAT,70),
+  MOVE_CMD(-200,700,100),
+
+  MOVE_CMD(  450, 600, 100),//leave green sticks
   TURN_CMD(  -90),
-  MOVE_CMD( -212, 600, 100),
+  //////yellowsticks
+  MOVE_CMD( -217, 600, 100),////
   TURN_CMD(  -90),
   MOVE_CMD( -120, 700, 100),
 
@@ -753,5 +769,4 @@ void loop() {
   updateButton();
   updateCurrentCommand();
 }
-
 
