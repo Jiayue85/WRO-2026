@@ -1,5 +1,5 @@
 /*
-  v11
+  v12
   WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
 
   DEFAULT: short diagnostic route, not the competition route.
@@ -147,23 +147,23 @@ const Command FULL_ROUTE[] = {
   TURN_CMD( -179),
   MOVE_CMD(  615, 700, 100),////going to parking lot
   TURN_CMD(  -90),
-  MOVE_CMD( -239, 700, 100),///aligning tiself in parking lot//-249
+  MOVE_CMD( -247, 700, 100),///aligning tiself in parking lot//-249
   TURN_CMD(   30),
   MOVE_CMD(   30, 700, 100),
 
   SERVO_CMD( SERVO_UP, 180),
   TURN_CMD( -118),
-  MOVE_CMD( -280, 700, 100),/////go to blue
+  MOVE_CMD( -279, 700, 100),/////go to blue
   SERVO_CMD(  SERVO_FLAT, 180),
   TURN_CMD(  -60),///scoop up blue
   MOVE_CMD(  305, 700, 100),
   TURN_CMD(  -30),
 
-  MOVE_CMD( -470, 700, 100),////going towards the edge of the board,63
+  MOVE_CMD( -475, 700, 100),////going towards the edge of the board,63
   TURN_CMD(  -89),
   MOVE_CMD(-1300, 700, 100),
   TURN_CMD(  -90),
-  MOVE_CMD( -350, 700, 100),/////along block
+  MOVE_CMD( -365, 700, 100),/////along block
   TURN_CMD(  -90),
   MOVE_CMD( -134, 700, 100),////going to blue plCING
  
@@ -171,18 +171,18 @@ const Command FULL_ROUTE[] = {
   SERVO_CMD(SERVO_UP,100),
   MOVE_CMD(170,700,100),
   SERVO_CMD(SERVO_FLAT,70),
-  MOVE_CMD( -90,700,100),///push blue
+  MOVE_CMD( -92,700,100),///push blue
 
 ///////////////concrete
   SERVO_CMD( SERVO_UP, 100),
   MOVE_CMD(  100, 700, 100),
   TURN_CMD(   90),
-  MOVE_CMD(  520, 600, 100),////going to edge of the map for concrete thong
+  MOVE_CMD(  510, 600, 100),////going to edge of the map for concrete thong
   TURN_CMD(  -90),
 
-  MOVE_CMD(  -100, 600, 100),
+  MOVE_CMD(  -145, 600, 100),
   SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
-  MOVE_CMD(  270, 600, 100),//drag back
+  MOVE_CMD(  290, 600, 100),//drag back
   SERVO_CMD( SERVO_UP, 150),
   TURN_CMD(   90),
   MOVE_CMD( -130, 700, 100),
@@ -190,7 +190,7 @@ const Command FULL_ROUTE[] = {
   /////////green sticks
   MOVE_CMD(-1500, 700, 120),///along the all the parts
   TURN_CMD(   90),
-  MOVE_CMD( -460, 700, 120),////trvaling up to greeb
+  MOVE_CMD( -500, 700, 120),////trvaling up to greeb
   TURN_CMD(  -90),
   MOVE_CMD(-140,700,100),
 
@@ -199,22 +199,23 @@ const Command FULL_ROUTE[] = {
   MOVE_CMD( -420, 600, 100),//520
   
   SERVO_CMD( SERVO_UP, 180),
-  MOVE_CMD( 100, 700,100),
+  MOVE_CMD( 150, 700,100),
   SERVO_CMD(SERVO_FLAT,70),
-  MOVE_CMD(-200,700,100),
+  MOVE_CMD(-230,700,100),////push green
+  SERVO_CMD(SERVO_UP,50),
 
-  MOVE_CMD(  450, 600, 100),//leave green sticks
+  MOVE_CMD(  380, 600, 100),//leave green sticks
   TURN_CMD(  -90),
   //////yellowsticks
-  MOVE_CMD( -217, 600, 100),////
+  MOVE_CMD( -217, 600, 100),
   TURN_CMD(  -90),
-  MOVE_CMD( -120, 700, 100),
+  MOVE_CMD( -120, 700, 100),////approach yellow
 
   SERVO_CMD(  SERVO_FLAT, 150),
-  TURN_CMD(  -90),
+  TURN_CMD(  -90),//scoop/align to go to edge of the board
   MOVE_CMD( -715, 650, 150),
   TURN_CMD(  -90),
-  MOVE_CMD( -900, 600, 150),
+  MOVE_CMD( -835, 600, 150),////along trowel
   TURN_CMD(  -90),
   MOVE_CMD( -160, 600, 150),
 
