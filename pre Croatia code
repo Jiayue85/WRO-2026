@@ -1,5 +1,5 @@
 /*
-  v13
+  v14
   WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
 
   DEFAULT: short diagnostic route, not the competition route.
@@ -138,14 +138,14 @@ Servo backServo;
 const Command FULL_ROUTE[] = {
 
  
-  MOVE_CMD(   34, 700, 40), ////32
+  MOVE_CMD(   43, 700, 40), ////32
   TURN_CMD(   88),
 
 
   SERVO_CMD(  SERVO_FLAT, 180),
-  MOVE_CMD( -975, 700, 100),////traveling towards the bowl
+  MOVE_CMD( -985, 700, 100),////traveling towards the bowl
   TURN_CMD( -179),
-  MOVE_CMD(  615, 700, 100),////going to parking lot
+  MOVE_CMD(  605, 700, 100),////going to parking lot
   TURN_CMD(  -90),
   MOVE_CMD( -236, 700, 100),///aligning tiself in parking lot//-249
   TURN_CMD(   30),
@@ -160,7 +160,7 @@ const Command FULL_ROUTE[] = {
   TURN_CMD(  -30),
 
   MOVE_CMD( -480, 700, 100),////going towards the edge of the board,63
-  TURN_CMD(  -89),
+  TURN_CMD(  -90),
   MOVE_CMD(-1296, 700, 100),
   TURN_CMD(  -90),
   MOVE_CMD( -370, 700, 100),/////along block
@@ -201,34 +201,34 @@ const Command FULL_ROUTE[] = {
   SERVO_CMD( SERVO_UP, 180),
   MOVE_CMD( 190, 700,100),
   SERVO_CMD(SERVO_FLAT,70),
-  MOVE_CMD(-120,700,100),////push green
+  MOVE_CMD(-137,700,100),////push green
   SERVO_CMD(SERVO_UP,50),
 
-  MOVE_CMD(  140, 600, 100),//leave green sticks
+  MOVE_CMD(  154, 600, 100),//leave green sticks
   TURN_CMD(  -90),
   //////yellowsticks
   MOVE_CMD( -217, 600, 100),
   TURN_CMD(  -90),
-  MOVE_CMD( -190, 700, 100),////approach yellow
+  MOVE_CMD( -200, 700, 100),////approach yellow
 
   SERVO_CMD(  SERVO_FLAT, 150),
   TURN_CMD(  -90),//scoop/align to go to edge of the board
-  MOVE_CMD( -721, 650, 150),
+  MOVE_CMD( -712, 650, 150),
+  TURN_CMD(  -88),
+  MOVE_CMD( -760, 600, 150),////along trowel
   TURN_CMD(  -90),
-  MOVE_CMD( -810, 600, 150),////along trowel
-  TURN_CMD(  -90),
-  MOVE_CMD( -50, 600, 150),
+  MOVE_CMD( -55, 600, 150),
 
   SERVO_CMD( SERVO_UP, 180),
   MOVE_CMD(  220, 600, 150),
   TURN_CMD(  -90),
-  MOVE_CMD( -540, 600, 100),
+  MOVE_CMD( -300, 600, 100),
   SERVO_CMD(  SERVO_FLAT, 180),
-  MOVE_CMD(  750, 700, 100),
+ 
   TURN_CMD(  -45),
   MOVE_CMD(   70, 700, 100),
   TURN_CMD(   45),
-  MOVE_CMD(  320, 700, 100),
+  MOVE_CMD(  990, 700, 100),
 
   END_CMD
 };
