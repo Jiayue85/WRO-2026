@@ -1,5 +1,5 @@
 /*
-  v14
+  v15
   WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
 
   DEFAULT: short diagnostic route, not the competition route.
@@ -27,6 +27,8 @@ constexpr uint8_t SERVO_PIN = 5;
 constexpr uint8_t BUTTON_PIN = 37;
 constexpr uint8_t HC_SR04_TRIGGER_PIN = 35;
 constexpr uint8_t HC_SR04_ECHO_PIN = 36;
+
+const int FAN_PIN = 8;
 
 // UNVERIFIED inherited mechanical settings: measure, do not guess.
 constexpr float TRACK_WIDTH_MM = 138.5f;
@@ -76,9 +78,9 @@ constexpr uint16_t TURN_SETTLE_MS = 200;
 constexpr uint16_t SENSOR_SETTLE_MS = 200;
 constexpr uint8_t DRIVER_MIN_PULSE_US = 4;
 constexpr uint8_t DRIVER_DIR_SETUP_US = 4;
-constexpr uint8_t SERVO_START_ANGLE = 120;
-constexpr uint16_t SERVO_FLAT = 54;
-constexpr uint16_t SERVO_UP = 120;
+constexpr uint8_t SERVO_START_ANGLE = 160;
+constexpr uint16_t SERVO_FLAT = 70;
+constexpr uint16_t SERVO_UP = 150;
 
 constexpr unsigned long SENSOR_MEASURE_INTERVAL_US = 60000UL;
 constexpr unsigned long HC_SR04_ECHO_TIMEOUT_US = 30000UL;
@@ -135,36 +137,36 @@ Servo backServo;
 #define END_CMD { CMD_END, 0, 0, 0, 0 }
 
 // Uploaded route distances, angles, speeds, accelerations and servo waits kept.
-const Command FULL_ROUTE[] = {
+const Command FULL_ROUTE[] = {//////////negative is left, positive is right
 
  
-  MOVE_CMD(   43, 700, 40), ////32
-  TURN_CMD(   88),
+  MOVE_CMD(   43, 700, 40), 
+  TURN_CMD(   -88),
 
 
   SERVO_CMD(  SERVO_FLAT, 180),
   MOVE_CMD( -985, 700, 100),////traveling towards the bowl
-  TURN_CMD( -179),
+  TURN_CMD( 179),
   MOVE_CMD(  605, 700, 100),////going to parking lot
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -236, 700, 100),///aligning tiself in parking lot//-249
-  TURN_CMD(   30),
+  TURN_CMD(   -30),
   MOVE_CMD(   30, 700, 100),
 
   SERVO_CMD( SERVO_UP, 180),
-  TURN_CMD( -118),
+  TURN_CMD( 118),
   MOVE_CMD( -275, 700, 100),/////go to blue
   SERVO_CMD(  SERVO_FLAT, 180),
-  TURN_CMD(  -60),///scoop up blue
+  TURN_CMD(  60),///scoop up blue
   MOVE_CMD(  305, 700, 100),
-  TURN_CMD(  -30),
+  TURN_CMD(  30),
 
   MOVE_CMD( -480, 700, 100),////going towards the edge of the board,63
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD(-1296, 700, 100),
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -370, 700, 100),/////along block
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -134, 700, 100),////going to blue plCING
  
  
@@ -176,7 +178,7 @@ const Command FULL_ROUTE[] = {
 ///////////////concrete
   SERVO_CMD( SERVO_UP, 100),
   MOVE_CMD(  100, 700, 100),
-  TURN_CMD(   90),
+  TURN_CMD(   -90),
   MOVE_CMD(  512, 600, 100),////going to edge of the map for concrete thong
   TURN_CMD(  -90),
 
@@ -184,18 +186,18 @@ const Command FULL_ROUTE[] = {
   SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
   MOVE_CMD(  330, 600, 100),//drag back
   SERVO_CMD( SERVO_UP, 150),
-  TURN_CMD(   90),
+  TURN_CMD(   -90),
   MOVE_CMD( -130, 700, 100),
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   /////////green sticks
   MOVE_CMD(-1510, 700, 120),///along the all the parts
-  TURN_CMD(   90),
+  TURN_CMD(   -90),
   MOVE_CMD( -495, 700, 120),////trvaling up to greeb
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD(-165,700,100),
 
   SERVO_CMD(  SERVO_FLAT, 180),////lower onto green
-  TURN_CMD( -180),//turn aroud
+  TURN_CMD( 180),//turn aroud
   MOVE_CMD( -450, 600, 100),//520
   
   SERVO_CMD( SERVO_UP, 180),
@@ -205,29 +207,29 @@ const Command FULL_ROUTE[] = {
   SERVO_CMD(SERVO_UP,50),
 
   MOVE_CMD(  154, 600, 100),//leave green sticks
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   //////yellowsticks
   MOVE_CMD( -217, 600, 100),
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -200, 700, 100),////approach yellow
 
   SERVO_CMD(  SERVO_FLAT, 150),
-  TURN_CMD(  -90),//scoop/align to go to edge of the board
+  TURN_CMD(  90),//scoop/align to go to edge of the board
   MOVE_CMD( -712, 650, 150),
-  TURN_CMD(  -88),
+  TURN_CMD(  88),
   MOVE_CMD( -760, 600, 150),////along trowel
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -55, 600, 150),
 
   SERVO_CMD( SERVO_UP, 180),
   MOVE_CMD(  220, 600, 150),
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
   MOVE_CMD( -300, 600, 100),
   SERVO_CMD(  SERVO_FLAT, 180),
  
-  TURN_CMD(  -45),
+  TURN_CMD(  45),
   MOVE_CMD(   70, 700, 100),
-  TURN_CMD(   45),
+  TURN_CMD(   -45),
   MOVE_CMD(  990, 700, 100),
 
   END_CMD
@@ -755,6 +757,10 @@ void setup() {
   digitalWrite(RIGHT_DIR_PIN, LOW);
   pinMode(HC_SR04_TRIGGER_PIN, OUTPUT);
   pinMode(HC_SR04_ECHO_PIN, INPUT);
+  
+  pinMode(FAN_PIN, OUTPUT);
+  digitalWrite(FAN_PIN, HIGH);
+  
   resetUltrasonic();
   masterMotor.setCurrentPosition(0);
   backServo.attach(SERVO_PIN);
