@@ -1,0 +1,785 @@
+/*
+  v15
+  WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
+
+  DEFAULT: short diagnostic route, not the competition route.
+  Confirm pins, direction, gearing and both drivers' microstep settings first.
+  Set RUN_FULL_ROUTE true only after repeatable straight and turn calibration.
+
+  One AccelStepper FUNCTION trajectory clocks BOTH wheels. Integer DDA distributes
+  unequal calibrated pulse totals throughout that trajectory. Driver STEP edges
+  are emitted together when both wheels are due; no two independent ramps.
+  Position is a count of commanded pulses, NOT measured wheel/robot position.
+  A stall, tyre slip or loose hub requires physical correction or feedback.
+*/
+#include <Arduino.h>
+#include <AccelStepper.h>
+#include <Servo.h>
+#include <math.h>
+
+constexpr uint8_t LEFT_STEP_PIN = 17;
+constexpr uint8_t LEFT_DIR_PIN = 16;
+constexpr uint8_t LEFT_ENABLE_PIN = 48;
+constexpr uint8_t RIGHT_STEP_PIN = 54;
+constexpr uint8_t RIGHT_DIR_PIN = 47;
+constexpr uint8_t RIGHT_ENABLE_PIN = 55;
+constexpr uint8_t SERVO_PIN = 5;
+constexpr uint8_t BUTTON_PIN = 37;
+constexpr uint8_t HC_SR04_TRIGGER_PIN = 35;
+constexpr uint8_t HC_SR04_ECHO_PIN = 36;
+
+const int FAN_PIN = 8;
+
+// UNVERIFIED inherited mechanical settings: measure, do not guess.
+constexpr float TRACK_WIDTH_MM = 138.5f;
+constexpr float WHEEL_DIAMETER_MM = 88.0f;
+constexpr float WHEEL_CIRCUMFERENCE_MM = PI * WHEEL_DIAMETER_MM;
+// Pulses/wheel revolution = full motor steps/rev * microsteps * motor rev/wheel rev.
+// User reports DRV8824, full steps, direct drive. Motor angle still UNVERIFIED:
+// 200 assumes 1.8 degrees/full step. Check the label; do not round a real 1.9
+// degree motor specification to 1.8. Use its documented full steps/revolution.
+constexpr float FULL_STEPS_PER_MOTOR_REV = 200.0f;
+constexpr uint8_t MICROSTEP_DIVISOR = 4;
+constexpr float MOTOR_REVS_PER_WHEEL_REV = 1.0f;
+// For 1/8 hardware microstepping change MICROSTEP_DIVISOR to 8 (1600 pulses
+// with a 200-step direct drive motor). Both drivers must match this setting.
+constexpr float EFFECTIVE_STEPS_PER_WHEEL_REV = FULL_STEPS_PER_MOTOR_REV
+  * MICROSTEP_DIVISOR * MOTOR_REVS_PER_WHEEL_REV;
+constexpr float DISTANCE_SCALE = 1.0000f;
+// UNVERIFIED inherited trims. Now used for BOTH straights and point turns.
+// They represent measured pulses per mm, not a correction for changing slip.
+// Start both at 1.0 if there is no evidence supporting the existing difference.
+constexpr float LEFT_WHEEL_TRIM = 1.0000f;
+constexpr float RIGHT_WHEEL_TRIM = 1.00f;//0.9927
+constexpr float LEFT_TURN_SCALE = 1.015f;
+constexpr float RIGHT_TURN_SCALE = 1.015f;
+constexpr float LEFT_WHEEL_TURN_TRIM = 1.0000f;
+constexpr float RIGHT_WHEEL_TURN_TRIM = 1.0000f;
+
+// Original route speed/acceleration entries use a 200-pulse/rev reference.
+// Convert them to physical units before applying caps and actual microstepping.
+// Thus changing microsteps does not silently change the intended physical ramp.
+// Caps are conservative starting settings; actual traction/torque must be tested.
+constexpr float LEGACY_REFERENCE_PULSES_PER_REV = 200.0f;
+constexpr float MAX_STRAIGHT_MM_S = 180.0f;
+constexpr float MAX_TURN_WHEEL_MM_S = 80.0f;
+constexpr float MAX_ACCELERATION_MM_S2 = 150.0f;
+// Deliberate ceiling for this polled Mega implementation; measure loop timing
+// before increasing it. Higher microstepping can reduce achievable travel speed.
+constexpr float MAX_MASTER_PULSES_S = 1500.0f;
+constexpr bool RUN_FULL_ROUTE = true;
+constexpr bool DEBUG_ENABLED = true;
+constexpr bool HOLD_MOTORS_WHEN_IDLE = true;
+constexpr unsigned long BUTTON_DEBOUNCE_MS = 40UL;
+constexpr unsigned long DRIVER_ENABLE_SETTLE_MS = 100UL;
+constexpr unsigned long SERVO_STARTUP_MS = 400UL;
+constexpr uint16_t MOVE_SETTLE_MS = 150;
+constexpr uint16_t TURN_SETTLE_MS = 200;
+constexpr uint16_t SENSOR_SETTLE_MS = 200;
+constexpr uint8_t DRIVER_MIN_PULSE_US = 4;
+constexpr uint8_t DRIVER_DIR_SETUP_US = 4;
+constexpr uint8_t SERVO_START_ANGLE = 160;
+constexpr uint16_t SERVO_FLAT = 70;
+constexpr uint16_t SERVO_UP = 150;
+
+constexpr unsigned long SENSOR_MEASURE_INTERVAL_US = 60000UL;
+constexpr unsigned long HC_SR04_ECHO_TIMEOUT_US = 30000UL;
+constexpr unsigned long SENSOR_STALE_MS = 500UL;
+constexpr unsigned long SENSOR_MOVE_TIMEOUT_MS = 30000UL;
+constexpr uint16_t SENSOR_MIN_MM = 20;
+constexpr uint16_t SENSOR_MAX_MM = 4000;
+constexpr uint8_t SENSOR_STOP_CONFIRMATIONS = 2;
+constexpr float SENSOR_MAX_TRAVEL_MM = 1000.0f;
+constexpr float SENSOR_STOP_MARGIN_MM = 5.0f;
+
+enum CommandType : uint8_t {
+  CMD_MOVE_MM, CMD_MOVE_UNTIL_SENSOR, CMD_TURN_DEG, CMD_SERVO, CMD_WAIT, CMD_END
+};
+struct Command {
+  CommandType type;
+  float value;
+  uint16_t maxSpeed;
+  uint16_t acceleration;
+  uint16_t settleAfterMs;
+};
+struct MotionPlan {
+  long leftSteps;
+  long rightSteps;
+  long totalSteps;
+  float maxStepSpeed;
+  float stepAcceleration;
+  float mmPerMasterStep;
+};
+// Explicit declarations keep Arduino's prototype generation compatible with
+// the custom types above.
+bool makeMotionPlan(float wheelDistanceMm, bool turning, float turnDegrees,
+                    uint16_t legacySpeed, uint16_t legacyAcceleration,
+                    MotionPlan &plan);
+void armMotion(const MotionPlan &plan);
+void debugCommandStart(const Command &command);
+void distributeMasterStep();
+void unexpectedReverseStep();
+AccelStepper masterMotor(distributeMasterStep, unexpectedReverseStep);
+Servo backServo;
+
+#define MOVE_CMD(mm, speedValue, accelValue) \
+  { CMD_MOVE_MM, (mm), (speedValue), (accelValue), MOVE_SETTLE_MS }
+// Sign selects travel direction; magnitude is sensor face-to-obstacle target mm.
+// Use only when the sensor faces the obstacle in that direction. Travel is
+// bounded by SENSOR_MAX_TRAVEL_MM. Braking may finish short of the target.
+#define SENSOR_MOVE_CMD(mm, speedValue, accelValue) \
+  { CMD_MOVE_UNTIL_SENSOR, (mm), (speedValue), (accelValue), SENSOR_SETTLE_MS }
+#define TURN_CMD(degreesValue) \
+  { CMD_TURN_DEG, (degreesValue), 500, 100, TURN_SETTLE_MS }
+#define SERVO_CMD(angleValue, waitValue) \
+  { CMD_SERVO, (angleValue), 0, 0, (waitValue) }
+#define WAIT_CMD(waitValue) { CMD_WAIT, (waitValue), 0, 0, 0 }
+#define END_CMD { CMD_END, 0, 0, 0, 0 }
+
+// Uploaded route distances, angles, speeds, accelerations and servo waits kept.
+const Command FULL_ROUTE[] = {//////////negative is left, positive is right
+
+ 
+  MOVE_CMD(   43, 700, 40), 
+  TURN_CMD(   -89),
+  
+
+
+  SERVO_CMD(  SERVO_FLAT, 180),
+  MOVE_CMD( -985, 700, 100),////traveling towards the bowl
+  TURN_CMD( 179),
+  MOVE_CMD(  605, 700, 100),////going to parking lot
+  TURN_CMD(  90),
+  MOVE_CMD( -100, 700, 100),///aligning tiself in parking lot//-249
+  MOVE_CMD( -20, 700, 100),
+  TURN_CMD(  -30),
+  SERVO_CMD( SERVO_UP, 180),
+  TURN_CMD(  30),
+  MOVE_CMD( 80, 700, 100),
+  TURN_CMD(   90),
+  MOVE_CMD(   -70, 700, 100),
+  TURN_CMD(   -90),
+  MOVE_CMD( -190, 700, 100),
+  TURN_CMD(   90),
+  MOVE_CMD( -235, 700, 100),/////go to blue
+  SERVO_CMD(  SERVO_FLAT, 180),
+  TURN_CMD(  180),///scoop up blue
+  MOVE_CMD(  -100, 700, 100),
+  TURN_CMD(  270),
+  MOVE_CMD( -190, 700, 100),
+
+  
+  TURN_CMD(  90),
+  MOVE_CMD(-1296, 700, 100),
+  TURN_CMD(  90),
+  MOVE_CMD( -370, 700, 100),/////along block
+  TURN_CMD(  90),
+  MOVE_CMD( -134, 700, 100),////going to blue plCING
+ 
+ 
+  SERVO_CMD(SERVO_UP,100),
+  MOVE_CMD(190,700,100),
+  SERVO_CMD(SERVO_FLAT,70),
+  MOVE_CMD( -112,700,100),///push blue
+
+///////////////concrete
+  SERVO_CMD( SERVO_UP, 100),
+  MOVE_CMD(  100, 700, 100),
+  TURN_CMD(   -90),
+  MOVE_CMD(  512, 600, 100),////going to edge of the map for concrete thong
+  TURN_CMD(  -90),
+
+  MOVE_CMD(  -145, 600, 100),
+  SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
+  MOVE_CMD(  330, 600, 100),//drag back
+  SERVO_CMD( SERVO_UP, 150),
+  TURN_CMD(   -90),
+  MOVE_CMD( -130, 700, 100),
+  TURN_CMD(  90),
+  /////////green sticks
+  MOVE_CMD(-1510, 700, 120),///along the all the parts
+  TURN_CMD(   -90),
+  MOVE_CMD( -495, 700, 120),////trvaling up to greeb
+  TURN_CMD(  90),
+  MOVE_CMD(-165,700,100),
+
+  SERVO_CMD(  SERVO_FLAT, 180),////lower onto green
+  TURN_CMD( 180),//turn aroud
+  MOVE_CMD( -450, 600, 100),//520
+  
+  SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD( 190, 700,100),
+  SERVO_CMD(SERVO_FLAT,70),
+  MOVE_CMD(-137,700,100),////push green
+  SERVO_CMD(SERVO_UP,50),
+
+  MOVE_CMD(  154, 600, 100),//leave green sticks
+  TURN_CMD(  90),
+  //////yellowsticks
+  MOVE_CMD( -217, 600, 100),
+  TURN_CMD(  90),
+  MOVE_CMD( -200, 700, 100),////approach yellow
+
+  SERVO_CMD(  SERVO_FLAT, 150),
+  TURN_CMD(  90),//scoop/align to go to edge of the board
+  MOVE_CMD( -712, 650, 150),
+  TURN_CMD(  88),
+  MOVE_CMD( -760, 600, 150),////along trowel
+  TURN_CMD(  90),
+  MOVE_CMD( -55, 600, 150),
+
+  SERVO_CMD( SERVO_UP, 180),
+  MOVE_CMD(  220, 600, 150),
+  TURN_CMD(  90),
+  MOVE_CMD( -300, 600, 100),
+  SERVO_CMD(  SERVO_FLAT, 180),
+ 
+  TURN_CMD(  45),
+  MOVE_CMD(   70, 700, 100),
+  TURN_CMD(   -45),
+  MOVE_CMD(  990, 700, 100),
+
+  END_CMD
+};
+
+const Command DIAGNOSTIC_ROUTE[] = {
+  MOVE_CMD(300, 700, 100), WAIT_CMD(1000),
+  MOVE_CMD(-300, 700, 100), WAIT_CMD(1000),
+  TURN_CMD(90), WAIT_CMD(1000),
+  TURN_CMD(-90), WAIT_CMD(1000), END_CMD
+};
+const Command *const PROGRAM = RUN_FULL_ROUTE ? FULL_ROUTE : DIAGNOSTIC_ROUTE;
+const size_t PROGRAM_LENGTH = RUN_FULL_ROUTE
+  ? sizeof(FULL_ROUTE) / sizeof(FULL_ROUTE[0])
+  : sizeof(DIAGNOSTIC_ROUTE) / sizeof(DIAGNOSTIC_ROUTE[0]);
+
+bool programRunning = false;
+bool commandActive = false;
+bool startupSettling = false;
+bool motionSettling = false;
+bool faulted = false;
+bool motionIntegrityFault = false;
+size_t commandIndex = 0;
+unsigned long commandStartMs = 0;
+unsigned long startupStartMs = 0;
+unsigned long settleStartMs = 0;
+unsigned long currentMotionTimeoutMs = 0;
+float currentMmPerMasterStep = 0.0f;
+
+// Callback runs in the normal loop, not an interrupt. No volatile is needed.
+unsigned long ddaLeftTotal = 0;
+unsigned long ddaRightTotal = 0;
+unsigned long ddaTotal = 0;
+unsigned long ddaLeftAccumulator = 0;
+unsigned long ddaRightAccumulator = 0;
+unsigned long ddaTicks = 0;
+
+bool lastRawButtonState = HIGH;
+bool stableButtonState = HIGH;
+unsigned long buttonLastChangedMs = 0;
+
+enum UltrasonicState : uint8_t {
+  ULTRASONIC_IDLE, ULTRASONIC_TRIGGER_LOW, ULTRASONIC_TRIGGER_HIGH,
+  ULTRASONIC_WAIT_RISE, ULTRASONIC_WAIT_FALL
+};
+enum SensorPhase : uint8_t {
+  SENSOR_WAIT_FIRST, SENSOR_DRIVING, SENSOR_BRAKING, SENSOR_FINISHED
+};
+UltrasonicState ultrasonicState = ULTRASONIC_IDLE;
+SensorPhase sensorPhase = SENSOR_WAIT_FIRST;
+unsigned long ultrasonicPhaseStartUs = 0;
+unsigned long ultrasonicEchoStartUs = 0;
+unsigned long ultrasonicLastReadUs = 0;
+unsigned long ultrasonicLastValidMs = 0;
+bool ultrasonicSampleReady = false;
+bool ultrasonicSampleValid = false;
+uint16_t ultrasonicDistanceMm = 0;
+uint16_t currentSensorTargetMm = 0;
+uint8_t sensorStopCount = 0;
+MotionPlan sensorMotionPlan;
+
+void debugText(const __FlashStringHelper *message) {
+  if (DEBUG_ENABLED) Serial.println(message);
+}
+
+void debugCommandStart(const Command &command) {
+  // Only called between movements, before a new trajectory is armed.
+  if (!DEBUG_ENABLED) return;
+  Serial.print(F("Command "));
+  Serial.print(commandIndex);
+  Serial.print(F(" type "));
+  Serial.print((int)command.type);
+  Serial.print(F(" value "));
+  Serial.println(command.value, 1);
+}
+
+void setDriversEnabled(bool enabled) {
+  // RUMBA plug-in drivers use active-low enable. Verify the actual carrier.
+  digitalWrite(LEFT_ENABLE_PIN, enabled ? LOW : HIGH);
+  digitalWrite(RIGHT_ENABLE_PIN, enabled ? LOW : HIGH);
+}
+
+void distributeMasterStep() {
+  if (ddaTotal == 0 || ddaTicks >= ddaTotal) {
+    motionIntegrityFault = true;
+    return;
+  }
+  ddaLeftAccumulator += ddaLeftTotal;
+  ddaRightAccumulator += ddaRightTotal;
+  const bool pulseLeft = ddaLeftAccumulator >= ddaTotal;
+  const bool pulseRight = ddaRightAccumulator >= ddaTotal;
+  if (pulseLeft) ddaLeftAccumulator -= ddaTotal;
+  if (pulseRight) ddaRightAccumulator -= ddaTotal;
+
+  // A few microseconds of GPIO instruction skew is unavoidable with digitalWrite.
+  // Both rising edges precede the common pulse-width hold; neither motor waits
+  // through the other motor's pulse hold. DIR is latched before the trajectory.
+  if (pulseLeft) digitalWrite(LEFT_STEP_PIN, HIGH);
+  if (pulseRight) digitalWrite(RIGHT_STEP_PIN, HIGH);
+  delayMicroseconds(DRIVER_MIN_PULSE_US);
+  if (pulseLeft) digitalWrite(LEFT_STEP_PIN, LOW);
+  if (pulseRight) digitalWrite(RIGHT_STEP_PIN, LOW);
+  ++ddaTicks;
+}
+
+void unexpectedReverseStep() {
+  // The virtual master must only advance; physical direction is on each DIR pin.
+  motionIntegrityFault = true;
+}
+
+void stopMotorsImmediately() {
+  // Stops future STEP pulses. This cannot promise zero physical coasting/slip.
+  masterMotor.setCurrentPosition(masterMotor.currentPosition());
+  digitalWrite(LEFT_STEP_PIN, LOW);
+  digitalWrite(RIGHT_STEP_PIN, LOW);
+}
+
+void resetUltrasonic() {
+  digitalWrite(HC_SR04_TRIGGER_PIN, LOW);
+  ultrasonicState = ULTRASONIC_IDLE;
+  ultrasonicSampleReady = false;
+  ultrasonicSampleValid = false;
+  ultrasonicLastReadUs = micros() - SENSOR_MEASURE_INTERVAL_US;
+  ultrasonicLastValidMs = millis();
+  sensorStopCount = 0;
+}
+
+void stopProgram(bool completed) {
+  stopMotorsImmediately();
+  programRunning = false;
+  commandActive = false;
+  startupSettling = false;
+  motionSettling = false;
+  resetUltrasonic();
+  if (!HOLD_MOTORS_WHEN_IDLE) setDriversEnabled(false);
+  commandIndex = 0;
+  debugText(completed ? F("Program completed: commanded pulse counts reached.")
+                      : F("Stopped. Reposition robot before restarting from command 0."));
+}
+
+void faultProgram(const __FlashStringHelper *message) {
+  stopProgram(false);  // Always halt before any Serial output about the fault.
+  faulted = true;
+  debugText(message);
+}
+
+bool makeMotionPlan(float wheelDistanceMm, bool turning, float turnDegrees,
+                    uint16_t legacySpeed, uint16_t legacyAcceleration,
+                    MotionPlan &plan) {
+  if (!isfinite(wheelDistanceMm) || !isfinite(turnDegrees)
+      || !isfinite(EFFECTIVE_STEPS_PER_WHEEL_REV)
+      || EFFECTIVE_STEPS_PER_WHEEL_REV <= 0.0f
+      || WHEEL_CIRCUMFERENCE_MM <= 0.0f || TRACK_WIDTH_MM <= 0.0f
+      || DISTANCE_SCALE <= 0.0f || LEFT_WHEEL_TRIM <= 0.0f
+      || RIGHT_WHEEL_TRIM <= 0.0f || legacySpeed == 0
+      || legacyAcceleration == 0) return false;
+  if (turning && (LEFT_WHEEL_TURN_TRIM <= 0.0f
+                  || RIGHT_WHEEL_TURN_TRIM <= 0.0f)) return false;
+
+  const float mm = fabsf(wheelDistanceMm);
+  const float baseStepsPerMm = EFFECTIVE_STEPS_PER_WHEEL_REV
+    * DISTANCE_SCALE / WHEEL_CIRCUMFERENCE_MM;
+  const float leftCoefficient = baseStepsPerMm * LEFT_WHEEL_TRIM
+    * (turning ? LEFT_WHEEL_TURN_TRIM : 1.0f);
+  const float rightCoefficient = baseStepsPerMm * RIGHT_WHEEL_TRIM
+    * (turning ? RIGHT_WHEEL_TURN_TRIM : 1.0f);
+  const float leftFloat = mm * leftCoefficient;
+  const float rightFloat = mm * rightCoefficient;
+  // Bound before float-to-long conversion and leave ample DDA addition headroom.
+  if (!isfinite(leftFloat) || !isfinite(rightFloat)
+      || leftFloat < 0.0f || rightFloat < 0.0f
+      || leftFloat > 10000000.0f || rightFloat > 10000000.0f) return false;
+
+  const long leftCount = lroundf(leftFloat);
+  const long rightCount = lroundf(rightFloat);
+  // Original electrical convention: straight positive = left DIR low, right
+  // DIR high; turn positive = both DIR high. Verify physically with wheels up.
+  const long sign = (turning ? turnDegrees : wheelDistanceMm) >= 0.0f ? 1L : -1L;
+  plan.leftSteps = leftCount * sign * (turning ? 1L : -1L);
+  plan.rightSteps = rightCount * sign;
+  plan.totalSteps = leftCount > rightCount ? leftCount : rightCount;
+  const float pulsesPerMm = plan.totalSteps > 0 && mm > 0.0f
+    ? (float)plan.totalSteps / mm : max(leftCoefficient, rightCoefficient);
+  const float legacyMmPerPulse = WHEEL_CIRCUMFERENCE_MM
+    / LEGACY_REFERENCE_PULSES_PER_REV;
+  const float speedMm = min((float)legacySpeed * legacyMmPerPulse,
+    turning ? MAX_TURN_WHEEL_MM_S : MAX_STRAIGHT_MM_S);
+  const float accelerationMm = min((float)legacyAcceleration * legacyMmPerPulse,
+    MAX_ACCELERATION_MM_S2);
+  plan.maxStepSpeed = min(speedMm * pulsesPerMm, MAX_MASTER_PULSES_S);
+  plan.stepAcceleration = accelerationMm * pulsesPerMm;
+  plan.mmPerMasterStep = pulsesPerMm > 0.0f ? 1.0f / pulsesPerMm : 0.0f;
+  return isfinite(plan.maxStepSpeed) && isfinite(plan.stepAcceleration)
+    && plan.maxStepSpeed > 0.0f && plan.stepAcceleration > 0.0f;
+}
+
+void armMotion(const MotionPlan &plan) {
+  stopMotorsImmediately();
+  masterMotor.setCurrentPosition(0);
+  ddaLeftTotal = (unsigned long)labs(plan.leftSteps);
+  ddaRightTotal = (unsigned long)labs(plan.rightSteps);
+  ddaTotal = (unsigned long)plan.totalSteps;
+  // Centre the DDA rounding error so near-equal wheels usually start together;
+  // each wheel stays within half a pulse of its ideal shared trajectory.
+  ddaLeftAccumulator = ddaTotal / 2UL;
+  ddaRightAccumulator = ddaTotal / 2UL;
+  ddaTicks = 0;
+  motionIntegrityFault = false;
+  currentMmPerMasterStep = plan.mmPerMasterStep;
+  digitalWrite(LEFT_DIR_PIN, plan.leftSteps >= 0 ? HIGH : LOW);
+  digitalWrite(RIGHT_DIR_PIN, plan.rightSteps >= 0 ? HIGH : LOW);
+  delayMicroseconds(DRIVER_DIR_SETUP_US);
+  masterMotor.setMaxSpeed(plan.maxStepSpeed);
+  masterMotor.setAcceleration(plan.stepAcceleration);
+  masterMotor.moveTo(plan.totalSteps);
+  const float seconds = (float)plan.totalSteps / plan.maxStepSpeed
+    + 2.0f * plan.maxStepSpeed / plan.stepAcceleration + 3.0f;
+  currentMotionTimeoutMs = (unsigned long)min(120000.0f,
+    max(6000.0f, seconds * 2000.0f));
+  commandStartMs = millis();
+  motionSettling = false;
+}
+
+bool motorsReachedTarget() {
+  return masterMotor.distanceToGo() == 0 && masterMotor.speed() == 0.0f;
+}
+
+void finishCurrentCommand() {
+  commandActive = false;
+  motionSettling = false;
+  ++commandIndex;
+}
+
+void settleThenFinish(uint16_t settleMs) {
+  const unsigned long now = millis();
+  if (!motionSettling) {
+    motionSettling = true;
+    settleStartMs = now;
+  } else if (now - settleStartMs >= settleMs) {
+    finishCurrentCommand();
+  }
+}
+
+void completeUltrasonicSample(bool valid, unsigned long nowUs) {
+  ultrasonicSampleReady = true; // Exactly one event, consumed once in update.
+  ultrasonicSampleValid = valid;
+  ultrasonicLastReadUs = nowUs;
+  ultrasonicState = ULTRASONIC_IDLE;
+  if (valid) ultrasonicLastValidMs = millis();
+}
+
+void serviceUltrasonic() {
+  const unsigned long nowUs = micros();
+  switch (ultrasonicState) {
+    case ULTRASONIC_IDLE:
+      if (nowUs - ultrasonicLastReadUs >= SENSOR_MEASURE_INTERVAL_US) {
+        digitalWrite(HC_SR04_TRIGGER_PIN, LOW);
+        ultrasonicPhaseStartUs = nowUs;
+        ultrasonicState = ULTRASONIC_TRIGGER_LOW;
+      }
+      break;
+    case ULTRASONIC_TRIGGER_LOW:
+      if (nowUs - ultrasonicPhaseStartUs >= 2UL) {
+        digitalWrite(HC_SR04_TRIGGER_PIN, HIGH);
+        ultrasonicPhaseStartUs = nowUs;
+        ultrasonicState = ULTRASONIC_TRIGGER_HIGH;
+      }
+      break;
+    case ULTRASONIC_TRIGGER_HIGH:
+      if (nowUs - ultrasonicPhaseStartUs >= 10UL) {
+        digitalWrite(HC_SR04_TRIGGER_PIN, LOW);
+        ultrasonicPhaseStartUs = nowUs;
+        ultrasonicState = ULTRASONIC_WAIT_RISE;
+      }
+      break;
+    case ULTRASONIC_WAIT_RISE:
+      if (digitalRead(HC_SR04_ECHO_PIN) == HIGH) {
+        ultrasonicEchoStartUs = nowUs;
+        ultrasonicState = ULTRASONIC_WAIT_FALL;
+      } else if (nowUs - ultrasonicPhaseStartUs >= HC_SR04_ECHO_TIMEOUT_US) {
+        completeUltrasonicSample(false, nowUs);
+      }
+      break;
+    case ULTRASONIC_WAIT_FALL:
+      if (digitalRead(HC_SR04_ECHO_PIN) == LOW) {
+        const unsigned long duration = nowUs - ultrasonicEchoStartUs;
+        const unsigned long distance = duration * 10UL / 58UL;
+        const bool valid = duration <= HC_SR04_ECHO_TIMEOUT_US
+          && distance >= SENSOR_MIN_MM && distance <= SENSOR_MAX_MM;
+        if (valid) ultrasonicDistanceMm = (uint16_t)distance;
+        completeUltrasonicSample(valid, nowUs);
+      } else if (nowUs - ultrasonicEchoStartUs >= HC_SR04_ECHO_TIMEOUT_US) {
+        completeUltrasonicSample(false, nowUs);
+      }
+      break;
+  }
+}
+
+void beginSensorMove(float signedTargetMm, uint16_t speed, uint16_t acceleration) {
+  const float target = fabsf(signedTargetMm);
+  // Validate EVERYTHING before moveTo or enabling a new trajectory.
+  if (!isfinite(target) || target < SENSOR_MIN_MM || target > SENSOR_MAX_MM
+      || !isfinite(SENSOR_MAX_TRAVEL_MM) || SENSOR_MAX_TRAVEL_MM <= 0.0f
+      || !makeMotionPlan(signedTargetMm >= 0.0f ? SENSOR_MAX_TRAVEL_MM
+          : -SENSOR_MAX_TRAVEL_MM, false, 0.0f, speed, acceleration,
+          sensorMotionPlan) || sensorMotionPlan.totalSteps == 0) {
+    faultProgram(F("ERROR: invalid sensor target or motion settings."));
+    return;
+  }
+  stopMotorsImmediately();
+  currentSensorTargetMm = (uint16_t)lroundf(target);
+  sensorPhase = SENSOR_WAIT_FIRST;
+  resetUltrasonic();
+  commandStartMs = millis();
+  motionSettling = false;
+}
+
+float sensorBrakingMarginMm() {
+  const float speedMm = fabsf(masterMotor.speed()) * currentMmPerMasterStep;
+  const float accelerationMm = masterMotor.acceleration() * currentMmPerMasterStep;
+  // Include two confirmation intervals, their worst-case echo waits, and margin.
+  const float sensingSeconds = (float)SENSOR_STOP_CONFIRMATIONS
+    * (SENSOR_MEASURE_INTERVAL_US + HC_SR04_ECHO_TIMEOUT_US) / 1000000.0f;
+  return speedMm * speedMm / (2.0f * max(accelerationMm, 0.001f))
+    + speedMm * sensingSeconds + SENSOR_STOP_MARGIN_MM;
+}
+
+void updateSensorMove(uint16_t settleMs) {
+  serviceUltrasonic();
+  if (sensorPhase == SENSOR_DRIVING || sensorPhase == SENSOR_BRAKING) {
+    masterMotor.run();
+  }
+  if (motionIntegrityFault) {
+    faultProgram(F("ERROR: master pulse distribution fault."));
+    return;
+  }
+  const unsigned long now = millis();
+  if (sensorPhase == SENSOR_FINISHED) {
+    settleThenFinish(settleMs);
+    return;
+  }
+  if (now - ultrasonicLastValidMs >= SENSOR_STALE_MS) {
+    faultProgram(F("ERROR: no fresh valid ultrasonic reading within 500 ms."));
+    return;
+  }
+  if (now - commandStartMs > SENSOR_MOVE_TIMEOUT_MS) {
+    faultProgram(F("ERROR: sensor movement timeout."));
+    return;
+  }
+
+  if (ultrasonicSampleReady) {
+    ultrasonicSampleReady = false;
+    if (!ultrasonicSampleValid) {
+      sensorStopCount = 0;
+    } else if (sensorPhase == SENSOR_WAIT_FIRST) {
+      if ((float)ultrasonicDistanceMm <= currentSensorTargetMm + SENSOR_STOP_MARGIN_MM) {
+        if (++sensorStopCount >= SENSOR_STOP_CONFIRMATIONS) {
+          sensorPhase = SENSOR_FINISHED; // Already at target: never start moving.
+        }
+      } else {
+        armMotion(sensorMotionPlan); // First valid clear reading permits travel.
+        sensorPhase = SENSOR_DRIVING;
+        sensorStopCount = 0;
+      }
+    } else if (sensorPhase == SENSOR_DRIVING) {
+      if ((float)ultrasonicDistanceMm <= currentSensorTargetMm + sensorBrakingMarginMm()) {
+        if (++sensorStopCount >= SENSOR_STOP_CONFIRMATIONS) {
+          masterMotor.stop(); // Keep servicing the shared ramp during braking.
+          // AccelStepper stop() may otherwise extend a target past the bound.
+          if (masterMotor.targetPosition() > (long)ddaTotal) {
+            masterMotor.moveTo((long)ddaTotal);
+          }
+          sensorPhase = SENSOR_BRAKING;
+        }
+      } else {
+        sensorStopCount = 0;
+      }
+    }
+  }
+  if (sensorPhase == SENSOR_BRAKING && motorsReachedTarget()) {
+    sensorPhase = SENSOR_FINISHED;
+    debugText(F("Sensor approach stopped; final gap requires physical verification."));
+  } else if (sensorPhase == SENSOR_DRIVING && motorsReachedTarget()) {
+    faultProgram(F("ERROR: sensor travel bound reached without stop detection."));
+  }
+}
+
+void startProgram() {
+  stopMotorsImmediately();
+  resetUltrasonic();
+  faulted = false;
+  motionIntegrityFault = false;
+  setDriversEnabled(true);
+  backServo.write(SERVO_START_ANGLE);
+  startupStartMs = millis();
+  startupSettling = true;
+  commandIndex = 0;
+  commandActive = false;
+  motionSettling = false;
+  programRunning = true;
+  debugText(RUN_FULL_ROUTE ? F("Starting full route after servo/driver settling.")
+                          : F("Starting diagnostic route after servo/driver settling."));
+}
+
+void startCurrentCommand() {
+  if (commandIndex >= PROGRAM_LENGTH) {
+    stopProgram(true);
+    return;
+  }
+  const Command &command = PROGRAM[commandIndex];
+  debugCommandStart(command);
+  commandActive = true;
+  commandStartMs = millis();
+  motionSettling = false;
+  MotionPlan plan;
+  switch (command.type) {
+    case CMD_MOVE_MM:
+      if (!makeMotionPlan(command.value, false, 0.0f, command.maxSpeed,
+                          command.acceleration, plan)) {
+        faultProgram(F("ERROR: invalid straight movement settings."));
+      } else armMotion(plan);
+      break;
+    case CMD_TURN_DEG: {
+      const float scale = command.value >= 0.0f ? LEFT_TURN_SCALE : RIGHT_TURN_SCALE;
+      const float arc = PI * TRACK_WIDTH_MM * fabsf(command.value) * scale / 360.0f;
+      if (scale <= 0.0f || !makeMotionPlan(arc, true, command.value,
+          command.maxSpeed, command.acceleration, plan)) {
+        faultProgram(F("ERROR: invalid turn settings."));
+      } else armMotion(plan);
+      break;
+    }
+    case CMD_MOVE_UNTIL_SENSOR:
+      beginSensorMove(command.value, command.maxSpeed, command.acceleration);
+      break;
+    case CMD_SERVO:
+      backServo.write(constrain((int)lroundf(command.value), 0, 180));
+      break;
+    case CMD_WAIT:
+      if (!isfinite(command.value) || command.value < 0.0f) {
+        faultProgram(F("ERROR: invalid wait time."));
+      }
+      break;
+    case CMD_END:
+      stopProgram(true);
+      break;
+    default:
+      faultProgram(F("ERROR: invalid command type."));
+      break;
+  }
+}
+
+void updateCurrentCommand() {
+  if (!programRunning) return;
+  if (startupSettling) {
+    const unsigned long elapsed = millis() - startupStartMs;
+    if (elapsed < SERVO_STARTUP_MS || elapsed < DRIVER_ENABLE_SETTLE_MS) return;
+    startupSettling = false;
+  }
+  if (!commandActive) {
+    startCurrentCommand();
+    return;
+  }
+  const Command &command = PROGRAM[commandIndex];
+  switch (command.type) {
+    case CMD_MOVE_MM:
+    case CMD_TURN_DEG:
+      masterMotor.run();
+      if (motionIntegrityFault) {
+        faultProgram(F("ERROR: master pulse distribution fault."));
+      } else if (motorsReachedTarget()) {
+        settleThenFinish(command.settleAfterMs);
+      } else if (millis() - commandStartMs > currentMotionTimeoutMs) {
+        faultProgram(F("ERROR: commanded movement timeout."));
+      }
+      break;
+    case CMD_MOVE_UNTIL_SENSOR:
+      updateSensorMove(command.settleAfterMs);
+      break;
+    case CMD_SERVO:
+      if (millis() - commandStartMs >= command.settleAfterMs) finishCurrentCommand();
+      break;
+    case CMD_WAIT:
+      if (millis() - commandStartMs >= (unsigned long)command.value) finishCurrentCommand();
+      break;
+    case CMD_END:
+      stopProgram(true);
+      break;
+    default:
+      faultProgram(F("ERROR: invalid active command."));
+      break;
+  }
+}
+
+void updateButton() {
+  const bool raw = digitalRead(BUTTON_PIN);
+  const unsigned long now = millis();
+  if (raw != lastRawButtonState) {
+    lastRawButtonState = raw;
+    buttonLastChangedMs = now;
+  }
+  if (now - buttonLastChangedMs >= BUTTON_DEBOUNCE_MS && raw != stableButtonState) {
+    stableButtonState = raw;
+    if (stableButtonState == LOW) {
+      if (programRunning) stopProgram(false);
+      else startProgram();
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  // Set output latches before enabling drivers to avoid unintended start pulses.
+  digitalWrite(LEFT_ENABLE_PIN, HIGH);
+  digitalWrite(RIGHT_ENABLE_PIN, HIGH);
+  pinMode(LEFT_ENABLE_PIN, OUTPUT);
+  pinMode(RIGHT_ENABLE_PIN, OUTPUT);
+  digitalWrite(LEFT_STEP_PIN, LOW);
+  digitalWrite(RIGHT_STEP_PIN, LOW);
+  pinMode(LEFT_STEP_PIN, OUTPUT);
+  pinMode(RIGHT_STEP_PIN, OUTPUT);
+  pinMode(LEFT_DIR_PIN, OUTPUT);
+  pinMode(RIGHT_DIR_PIN, OUTPUT);
+  digitalWrite(LEFT_DIR_PIN, LOW);
+  digitalWrite(RIGHT_DIR_PIN, LOW);
+  pinMode(HC_SR04_TRIGGER_PIN, OUTPUT);
+  pinMode(HC_SR04_ECHO_PIN, INPUT);
+  
+  pinMode(FAN_PIN, OUTPUT);
+  digitalWrite(FAN_PIN, HIGH);
+  
+  resetUltrasonic();
+  masterMotor.setCurrentPosition(0);
+  backServo.attach(SERVO_PIN);
+  backServo.write(SERVO_START_ANGLE);
+  setDriversEnabled(HOLD_MOTORS_WHEN_IDLE);
+  lastRawButtonState = digitalRead(BUTTON_PIN);
+  stableButtonState = lastRawButtonState;
+  buttonLastChangedMs = millis();
+  debugText(F("Ready: verify motor steps/microsteps and direction before button start."));
+}
+
+void loop() {
+  updateButton();
+  updateCurrentCommand();
+}
