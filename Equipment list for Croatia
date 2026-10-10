@@ -1,0 +1,34 @@
+Electronics:
+-- NEMA 17 pancake x2
+-- battery 12v 6000 mAh
+-- drv 8824 driver boards
+-- RAMPS 1.4 with MEGA
+-- Jumper cables(MALE to male, female to male, female to female)
+
+
+CABLES/Chargers:
+-- RUMBA cable
+-- MEGA cable
+-- Battery charger
+-- usb-C hub
+
+Other:
+-- caster wheels
+-- SPIKE wheels
+--wet wipes for wheels
+
+Tools:
+-- flat head
+-- complete set of align keys(1.5, 2, 2.5, 3,3.5)
+-- NUT(M2,M3,M4)
+-- BOLTS( M2, M3, M4)
+-- washers
+
+
+3d Printed parts:
+-- motor base
+-- cable box
+-- rumba mount
+-- fan mount
+--servo attatchment(main part, little rectangle,bridge)
+
