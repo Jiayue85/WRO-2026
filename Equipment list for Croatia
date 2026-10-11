@@ -4,6 +4,7 @@ Electronics:
 -- drv 8824 driver boards
 -- RAMPS 1.4 with MEGA
 -- Jumper cables(MALE to male, female to male, female to female)
+-- 12v battery for multimeter
 
 
 CABLES/Chargers:
@@ -18,6 +19,7 @@ Other:
 --wet wipes for wheels
 --- ruler
 --mutlimeter
+-- bearings
 
 Tools:
 -- flat head
