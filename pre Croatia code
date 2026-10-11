@@ -1,5 +1,5 @@
 /*
-  v17
+  v18
   WRO consistency v11 -- RUMBA / Arduino Mega, AccelStepper + Servo.
 
   DEFAULT: short diagnostic route, not the competition route.
@@ -149,9 +149,9 @@ const Command FULL_ROUTE[] = {//////////negative is left, positive is right
   MOVE_CMD( -990, 700, 100),////traveling towards the bowl
   SERVO_CMD(  SERVO_UP, 250),
   TURN_CMD( 90),
-  MOVE_CMD( -15, 700, 100),
+
   SERVO_CMD(  SERVO_FLAT, 180),
-  MOVE_CMD( 10, 700, 100),
+ 
   TURN_CMD( 90),
   MOVE_CMD(  610, 700, 100),////going to parking lot
   TURN_CMD(  90),
@@ -168,17 +168,17 @@ const Command FULL_ROUTE[] = {//////////negative is left, positive is right
   MOVE_CMD( -250, 700, 100),//going up to the blue stick
 
   TURN_CMD(   89),
-  MOVE_CMD( -230, 700, 100),/////go to blue
+  MOVE_CMD( -228, 700, 100),/////go to blue
   SERVO_CMD(  SERVO_FLAT, 180),
 
   TURN_CMD(  60),///scoop up blue
   MOVE_CMD(  100, 700, 100),
   TURN_CMD(  30),
-  MOVE_CMD( -330, 700, 100),//going to edge
+  MOVE_CMD( -293, 700, 100),//going to edge
 
   
   TURN_CMD(  89),
-  MOVE_CMD(-1396, 700, 100),////along the three things
+  MOVE_CMD(-1420, 700, 100),////along the three things
   TURN_CMD(  90),
   MOVE_CMD( -370, 700, 100),/////along block
   TURN_CMD(  90),
@@ -195,7 +195,7 @@ const Command FULL_ROUTE[] = {//////////negative is left, positive is right
   MOVE_CMD(  100, 700, 100),
   TURN_CMD(   -90),
   MOVE_CMD(  512, 600, 100),////going to edge of the map for concrete thong
-  TURN_CMD(  -90),
+  TURN_CMD(  90),
 
   MOVE_CMD(  -145, 600, 100),
   SERVO_CMD(  SERVO_FLAT, 220),///catch onto 
